@@ -1,3 +1,22 @@
+interface LoginMessage {
+    type: "login";
+    userName: string;
+    password: string;
+}
+
+interface ChangePriorityMessage {
+    type: "change_priority";
+    priotities: string[];
+}
+
+interface FetchBandwidthMessage {
+    type: "fetch_bandwidth";
+}
+
+interface CheckFirewallMessage {
+    type: "check_firewall";
+}
+
 require('dotenv').config();
 
 import express, { Request, Response } from 'express';
@@ -6,7 +25,9 @@ import { RouterOSAPI } from 'node-routeros';
 const app = express();
 import amqp = require('amqplib');
 
-const ros = new RouterOSAPI({
+const RouterOsClient = require('routeros-client').RouterOSClient;
+
+const ros = new RouterOsClient({
     host: '192.168.88.1',
     user: process.env.ROUTER_USER,
     password: process.env.ROUTER_PASSWORD
@@ -41,6 +62,7 @@ async function consumeMessages(){
         await channel.assertQueue('requests_queue', { durable: false });
         console.log('Waiting for messages in the requests_queue');
         channel.consume('requests_queue', async (message)=>{
+            await ros.connect();
             if(message !== null){
                 const command = JSON.parse(message.content.toString());
                 const content = message.toString();
@@ -50,23 +72,22 @@ async function consumeMessages(){
                 switch(command.type){
                     //login to the router
                     case 'login':
-                        const userName = command.userName;
-                        const password = command.password;
-                        await handleLogin(userName, password);
+                        console.log('Logging in');
+                        await handleLogin(command);
                     //change priority
                     case 'change_priority':
                         console.log('Changing priority');
-                        await handleChangePriority();
+                        await handleChangePriority(command);
                         break;
                     //fetch bandwidth data
                     case 'fetch_bandwidth':
                         console.log('fetching bandwidth data');
-                        await handleFetchBandwidth();
+                        await handleFetchBandwidth(command);
                         break;
                     //check firewwall
                     case 'check_firewall':
                         console.log('checking firewall');
-                        await handleCheckFirewall();
+                        await handleCheckFirewall(command);
                         break;
                 }
 
@@ -79,32 +100,41 @@ async function consumeMessages(){
     catch(error){
         console.error('Failed to consume messages:', error);
     }
+    finally{
+        await ros.close();
+    }
 }
 
-
-
+consumeMessages();
 //start the server
-app.listen(process.env.PORT, () => {
-    console.log(`Server running on http://localhost:${process.env.PORT}`);
-});
+// app.listen(process.env.PORT, () => {
+//     console.log(`Server running on http://localhost:${process.env.PORT}`);
+// });
 
 //handling changing the priority
-async function handleChangePriority(){
+async function handleChangePriority(command: ChangePriorityMessage){
 
 }
 
-async function handleCheckFirewall(){
+async function handleCheckFirewall(command: CheckFirewallMessage){
+    const allFirewallRules = await ros.menu('ip/firewall/filter').get();
+    console.log(allFirewallRules);
+}
+
+async function handleFetchBandwidth(command: FetchBandwidthMessage){
 
 }
 
-async function handleFetchBandwidth(){
+async function handleLogin(command: LoginMessage){
+    const userName = command.userName;
+    const password = command.password;
 
-}
-
-async function handleLogin(userName: string, Password: string) {
-    await ros.connect();
-    const response = await ros.write('/user/print', [`?name=${userName}`]);
-    ros.close();
-    return response.length > 0;
+    const data = await ros.write(`/user/print?where=name=${userName}`);
+    if(data.length > 0 && data[0].password === password){
+        console.log('User logged in');
+    }
+    else{
+        console.log('User does not exist or password is incorrect');
+    } 
 }
 
