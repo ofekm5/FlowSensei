@@ -1,3 +1,16 @@
+
+require('dotenv').config();
+
+import express, { Request, Response } from 'express';
+import { RouterOSAPI } from 'node-routeros';
+
+const app = express();
+import amqp from 'amqplib';
+const knownGamingPorts = require('./gamingPorts').gamingPorts;
+import { setInterval } from 'timers';
+import { PassThrough } from 'stream';
+import { connect } from 'http2';
+
 interface LoginMessage {
     type: "login";
     userName: string;
@@ -6,27 +19,20 @@ interface LoginMessage {
 
 interface ChangePriorityMessage {
     type: "change_priority";
-    priotities: string[];
+    priorities: string[];
 }
 
-interface FetchBandwidthMessage {
-    type: "fetch_bandwidth";
+interface ChangeIntervalMessage {
+    type: "change_interval";
+    interval: number;   
 }
 
 interface CheckFirewallMessage {
     type: "check_firewall";
 }
 
-require('dotenv').config();
-
-import express, { Request, Response } from 'express';
-import { RouterOSAPI } from 'node-routeros';
-
-const app = express();
-import amqp = require('amqplib');
-
 const RouterOsClient = require('routeros-client').RouterOSClient;
-
+let interval = 1
 const ros = new RouterOsClient({
     host: '192.168.88.1',
     user: process.env.ROUTER_USER,
@@ -53,6 +59,16 @@ const ros = new RouterOsClient({
 //     }
 // });
 
+consumeMessages();
+setInterval(async ()=>{
+    const fileName = fetchBandwidth();
+
+}, interval * 1000);
+//start the server
+app.listen(process.env.PORT, () => {
+    console.log(`Server running on http://localhost:${process.env.PORT}`);
+});
+
 //in this function we consume the messages from the queue
 async function consumeMessages(){
     try{
@@ -73,21 +89,22 @@ async function consumeMessages(){
                     //login to the router
                     case 'login':
                         console.log('Logging in');
-                        await handleLogin(command);
+                        handleLogin(command);
+                        break;
                     //change priority
                     case 'change_priority':
                         console.log('Changing priority');
-                        await handleChangePriority(command);
+                        handleChangePriority(command);
                         break;
                     //fetch bandwidth data
-                    case 'fetch_bandwidth':
-                        console.log('fetching bandwidth data');
-                        await handleFetchBandwidth(command);
+                    case 'change_interval':
+                        console.log('changing interval');
+                        handleChangeInterval(command);
                         break;
                     //check firewwall
                     case 'check_firewall':
                         console.log('checking firewall');
-                        await handleCheckFirewall(command);
+                        handleCheckFirewall(command);
                         break;
                 }
 
@@ -98,21 +115,27 @@ async function consumeMessages(){
         })
     }
     catch(error){
-        console.error('Failed to consume messages:', error);
+        console.log(error)
+        console.error('An error has occured', error);
     }
     finally{
         await ros.close();
     }
 }
 
-consumeMessages();
-//start the server
-// app.listen(process.env.PORT, () => {
-//     console.log(`Server running on http://localhost:${process.env.PORT}`);
-// });
+
 
 //handling changing the priority
 async function handleChangePriority(command: ChangePriorityMessage){
+    //delete previous queue
+
+    const priorities = command.priorities;
+    for(let i = 0; i < priorities.length; i++){
+        const priority = priorities[i];
+        addMangle(priority);    
+    }
+
+    createQueueTree(priorities);
 
 }
 
@@ -121,20 +144,212 @@ async function handleCheckFirewall(command: CheckFirewallMessage){
     console.log(allFirewallRules);
 }
 
-async function handleFetchBandwidth(command: FetchBandwidthMessage){
-
+async function handleChangeInterval(command: ChangeIntervalMessage){
+    interval = command.interval;
 }
 
 async function handleLogin(command: LoginMessage){
     const userName = command.userName;
     const password = command.password;
-
-    const data = await ros.write(`/user/print?where=name=${userName}`);
-    if(data.length > 0 && data[0].password === password){
-        console.log('User logged in');
+    try{
+        const data = await ros.write(`/user/print?where=name=${userName}`);
+        if(data.length > 0 && data[0].password === password){
+            return 'user logged in';
+        }
+        else{
+            return 'user not found'
+        } 
     }
-    else{
-        console.log('User does not exist or password is incorrect');
-    } 
+    catch(error){
+        throw new Error('Failed to login');
+    }
+    
+    
 }
 
+async function addMangle(priority: string) {
+    try {
+        switch(priority){
+            case 'web-surfing':
+                mangleWebSurfing();
+                break;
+            case 'gaming':
+                mangleGaming();
+                break;
+            case 'video-calls':
+                mangleAllVideoCalls();
+                break;
+            case 'email':
+                mangleEmails();
+                break;
+        }
+    } 
+    catch (error) {
+        throw new Error((error as Error).message)
+    }
+}
+
+async function mangleWebSurfing() {
+    try {
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-connection',
+            chain: 'prerouting',
+            dstPort: '80,443',
+            newConnectionMark: 'web-surfing',
+            passthrough: 'yes',
+            protocol: 'tcp',
+        });
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-conection',
+            chain: 'prerouting',
+            dstPort: '53',
+            newConnectionMark: 'web-surfing',
+            PassThrough: 'yes',
+            protocol: 'udp',
+        });
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-packet',
+            chain: 'prerouting',
+            connectionMark: 'web-surfing',
+            newPacketMark: 'web-surfing-packet',
+            passthrough: 'no',
+        });
+    } 
+    catch (error) {
+       throw new Error('Failed to mangle web surfing'); 
+    }
+}
+
+async function mangleEmails() {
+    try {
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-connection',
+            chain: 'prerouting',
+            dstPort: '25,587,465,110,995,143,993',
+            newConnectionMark: 'email',
+            passthrough: 'yes',
+            protocol: 'tcp',
+        });
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-packet',
+            chain: 'prerouting',
+            dstPort: '53',
+            newConnectionMark: 'email',
+            passthrough: 'no',
+            protocol: 'udp',
+        });
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-packet',
+            chain: 'prerouting',
+            connectionMark: 'email',
+            newPacketMark: 'email-packet',
+            passthrough: 'no',
+        });
+    } 
+    catch (error) {
+        throw new Error('Failed to mangle emails');
+    }
+}
+
+async function fetchBandwidth() {
+    try{
+        const packets = [];
+        let startTime = Date.now();
+        let elapsedTime = 0;
+        await ros.menu('/tool sniffer').call('set', { 'file-name': 'packets' });
+        await ros.menu('/tool sniffer').call('start');
+
+        while(elapsedTime < interval){
+            elapsedTime = Date.now() - startTime;
+        }
+
+        await ros.menu('/tool sniffer').call('stop');
+        const files = await ros.menu('/file').print();
+        const fileName = files[files.length - 1].name;
+        return fileName;
+    }
+    catch(error){
+        throw new Error('Failed to fetch bandwidth');
+    }
+    
+}
+
+async function mangleAllVideoCalls() {
+    try {
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-connection',
+            chain: 'prerouting',
+            dstPort: '80,443,8801,8802,50000-50059',
+            newConnectionMark: 'video-calls',
+            passthrough: 'yes',
+            protocol: 'tcp',
+        });
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-connection',
+            chain: 'prerouting',
+            dstPort: '19302-19309,3478-3481,8801-8810,50000-50059',
+            newConnectionMark: 'video-calls',
+            passthrough: 'yes',
+            protocol: 'udp',
+        });
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-packet',
+            chain: 'prerouting',
+            connectionMark: 'video-calls',
+            newPacketMark: 'video-calls-packet',
+            passthrough: 'no',
+        });
+    }
+    catch (error) {
+        throw new Error('Failed to mangle video calls');
+    }
+}
+
+async function mangleGaming() {
+    try {
+        for(let i = 0; i < knownGamingPorts.length; i++){
+            const gamingPort = knownGamingPorts[i];
+            await ros.menu('/ip firewall mangle').add({
+                action: 'mark-connection',
+                chain: 'prerouting',
+                dstPort: gamingPort.ports,
+                newConnectionMark: 'gaming',
+                passthrough: 'yes',
+                protocol: gamingPort.protocol,
+            });
+        }
+        await ros.menu('/ip firewall mangle').add({
+            action: 'mark-packet',
+            chain: 'prerouting',
+            connectionMark: 'gaming',
+            newPacketMark: 'gaming-packet',
+            passthrough: 'no',
+        });
+    } 
+    catch (error) {
+      throw new Error('Failed to mangle gaming');  
+    }
+}
+
+async function createQueueTree(priorities: string[]) {
+   try {
+        await ros.menu('/queue tree').add({
+            name: 'root',
+            parent: 'global',
+        });
+    
+        for(let i = 0; i < priorities.length; i++){
+            let priority = priorities[i];
+            priority += '-packet';
+            await ros.menu('/queue tree').add({
+                name: priority,
+                parent: 'root',
+                packetMarks: priority,
+                priority: i + 1,
+            });
+        }
+   } 
+   catch (error) {
+    throw new Error('Failed to create queue tree');
+   }
+}
