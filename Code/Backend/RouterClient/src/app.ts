@@ -53,26 +53,6 @@ const conn = new RosApi({
 });
 
 
-//in this endpoint the user tries to login to the router
-// app.get('/login', async (req: Request, res: Response) => {
-//     try {
-//         await ros.connect();
-//         const response = await ros.write('/system/routerboard/print');
-//         ros.close();
-//         res.send(response);
-//         console.log("Successfully fetched data!");
-//     } catch (error: unknown) {
-//         console.error('API call failed:', error);
-//         // Type guard for standard Error objects
-//         if (error instanceof Error) {
-//             res.status(500).send(`Failed to fetch data from RouterOS: ${error.message}`);
-//         } else {
-//             // Handle cases where the error might not be an Error object
-//             res.status(500).send('Failed to fetch data from RouterOS due to an unknown error');
-//         }
-//     }
-// });
-
 // consumeMessages();
 // setInterval(async ()=>{
 //     const fileName = fetchBandwidth();
@@ -146,7 +126,6 @@ async function consumeMessages(){
 //handling changing the priority
 async function handleChangePriority(command: ChangePriorityMessage){
     //delete previous queue
-
     const priorities = command.priorities;
     for(let i = 0; i < priorities.length; i++){
         const priority = priorities[i];
@@ -185,8 +164,6 @@ async function handleLogin(command: LoginMessage){
     catch(error){
         throw new Error('Failed to login');
     }
-    
-    
 }
 
 async function addMangle(priority: string) {
