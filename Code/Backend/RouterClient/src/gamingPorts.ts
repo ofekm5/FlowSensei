@@ -3,3 +3,4 @@ const gamingPorts = [
     {name: 'steam', ports: '27014-27050,80,443', protocol: 'tcp'},
 
 ]
+export default gamingPorts;
