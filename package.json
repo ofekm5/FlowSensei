@@ -2,7 +2,9 @@
   "dependencies": {
     "amqplib": "^0.10.4",
     "express": "^4.19.2",
+    "node-cron": "^3.0.3",
     "routeros-client": "^1.1.2",
-    "sse-stream": "^0.0.5"
+    "sse-stream": "^0.0.5",
+    "winston": "^3.13.0"
   }
 }

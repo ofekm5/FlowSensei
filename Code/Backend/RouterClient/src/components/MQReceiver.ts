@@ -1,8 +1,9 @@
 import amqp from 'amqplib';
 import apiClient from './APIClient';
-import handleLogin from './login';
+import handleLogin from './Login';
 import checkFirewall from './FirewallChecker';
 import changePriority from './PriorityModifier';
+import transporter from './TransportMonitor';
 
 const consumeMessages = async () => {
     try{
@@ -33,7 +34,7 @@ const consumeMessages = async () => {
                     //fetch bandwidth data
                     case 'change_interval':
                         console.log('changing interval');
-                        changeInterval(command);
+                        transporter.changeInterval(command);
                         break;
                     //check firewwall
                     case 'check_firewall':
