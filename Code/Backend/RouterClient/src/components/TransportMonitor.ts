@@ -1,46 +1,54 @@
+import logger from "../logger";
 import apiClient from "./APIClient";
+let interval = 1;
 
 interface ChangeIntervalMessage {
     type: "change_interval";
     interval: number;   
 }
 
-async function fetchRouterTransport() {    
-    try{
-        console.log("connecting to router")
-        const client = await apiClient.connect();
-        console.log("connected to router");
+async function changeInterval(command: ChangeIntervalMessage){
+    interval = command.interval;
+}
 
-        let startTime = Date.now();
+async function fetchRouterTransport() { 
+    apiClient.write('/tool/sniffer/start').then(()=>{
+        logger.info("Sniffer started");
         let elapsedTime = 0;
-
-        console.log("starting sniffer");
-        await apiClient.write('/tool/sniffer/start');
-        console.log("sniffer started");
-
-        while(elapsedTime < interval * 10000){
+        let startTime = Date.now();
+        while(elapsedTime < interval * 1000){
             elapsedTime = Date.now() - startTime;
         }
-
-        console.log("stopping sniffer");
-        await apiClient.write('/tool/sniffer/stop');
-        console.log("sniffer stopped");
-        console.log("saving sniffer ");
-
-        await apiClient.write('/tool/sniffer/save', '=file-name=packets');
-        console.log("sniffer saved");
-        console.log("fetching files");
-
-        const files = await apiClient.write('/file/print');
-        console.log(files);
     }
-    catch(error){
-        console.log("Failed to connect to the router")
-        console.log(error);
-        console.log((error as Error).message)
-        throw new Error('Failed to fetch bandwidth');
-    }
-    finally{
-        await apiClient.close();
-    }    
+)
+.catch((error)=>{
+    logger.error("Failed to fetch router transport");
+    throw new Error('Failed to fetch router transport');
+})
+.then(()=>{
+   logger.info("Stopping sniffer");
+   apiClient.write('/tool/sniffer/stop')
+   .then(()=>{
+        logger.info("Sniffer stopped");
+    })
+    .then(()=>{
+        logger.info("Saving sniffer");
+        apiClient.write('/tool/sniffer/save', '=file-name=packets')
+        .then(()=>{
+            logger.info("Sniffer saved");
+        })
+        .then(()=>{
+            logger.info("Fetching files");
+            apiClient.write('/file/print')
+            .then((files)=>{
+                console.log(files);
+            })
+        })
+})})
+.catch((error)=>{
+    logger.error("Failed to fetch router transport");
+    throw new Error('Failed to fetch router transport');
+});
 }
+
+export default {fetchRouterTransport, changeInterval};

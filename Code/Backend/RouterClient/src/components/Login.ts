@@ -11,15 +11,19 @@ const handleLogin = async (command: LoginMessage)=> {
     const userName = command.userName;
     const password = command.password;
     try{
-        const data = await apiClient.write(`/user/print?where=name=${userName}`);
-        if(data.length > 0 && data[0].password === password){
-            logger.info('user logged in');
-        }
-        else{
-            logger.error('user not found'); 
-        } 
+        const result = apiClient.write(`/user/print?where=name=${userName}`).then(
+            (data) => {
+                if(data.length > 0 && data[0].password === password){
+                    logger.info('user logged in');
+                }
+                else{
+                    logger.error('user not found');
+                }
+            }
+        );
     }
     catch(error){
+        logger.error('Failed to login');
         throw new Error('Failed to login');
     }
 }

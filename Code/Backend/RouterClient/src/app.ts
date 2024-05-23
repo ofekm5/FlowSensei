@@ -3,6 +3,7 @@ import logger from './logger';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import consumeMessages from './components/MQReceiver';
+import fetchRouterTransport from './components/TransportMonitor';
 dotenv.config();
 
 const app = express();
