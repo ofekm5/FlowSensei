@@ -2,8 +2,8 @@ import express, { Request, Response } from 'express';
 import logger from './logger';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
-import consumeMessages from './components/MQReceiver';
-import fetchRouterTransport from './components/TransportMonitor';
+import transporter from './components/TransportMonitor'
+import transceiver from './components/MQTransceiver';
 dotenv.config();
 
 const app = express();
@@ -14,7 +14,7 @@ cron.schedule('*/10 * * * * *', () => {
     try {
         if (!isRunning) {
             isRunning = true;
-            consumeMessages();//write here the tested function
+            transceiver.consumeAndSendMessages();//write here the tested function
             isRunning = false;
         } 
         else {
@@ -25,6 +25,10 @@ cron.schedule('*/10 * * * * *', () => {
         logger.error(error);
     }
 });
+cron.schedule(`*/${transporter.interval}* * * * *`, () => {
+    const data = transporter.fetchRouterTransport();
+    transceiver.sendMessage(data);
+})
   
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });

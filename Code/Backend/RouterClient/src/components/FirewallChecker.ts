@@ -8,7 +8,7 @@ interface CheckFirewallMessage {
 const checkFirewall = async (command: CheckFirewallMessage) => {
     await apiClient.connect().then();
     const allFirewallRules = await apiClient.write('/ip/firewall/filter/print');
-    //logger.info(allFirewallRules);
+    logger.info(allFirewallRules.toString());
     await apiClient.close();
 }
 

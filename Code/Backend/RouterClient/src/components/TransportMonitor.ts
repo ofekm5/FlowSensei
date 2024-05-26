@@ -42,13 +42,15 @@ async function fetchRouterTransport() {
             apiClient.write('/file/print')
             .then((files)=>{
                 console.log(files);
+                const fileName = files[files.length - 1];
+                return fileName;
             })
         })
 })})
 .catch((error)=>{
-    logger.error("Failed to fetch router transport");
+    logger.error("Failed to fetch router transport "  +error);
     throw new Error('Failed to fetch router transport');
 });
 }
 
-export default {fetchRouterTransport, changeInterval};
+export default {fetchRouterTransport, changeInterval, interval};
