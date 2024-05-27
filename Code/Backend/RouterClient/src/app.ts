@@ -22,7 +22,7 @@ cron.schedule('*/10 * * * * *', () => {
         }
     } 
     catch (error) {
-        logger.error(error);
+        logger.error(`${error}`);
     }
 });
 cron.schedule(`*/${transporter.interval}* * * * *`, () => {
