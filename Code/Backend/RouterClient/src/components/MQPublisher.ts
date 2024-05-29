@@ -1,36 +1,35 @@
-import amqp from 'amqplib';
+import {connect} from 'amqplib';
 import logger from '../logger'; 
+//amqp://myuser:mypass@localhost:5672
 
 class MQPublisher {
-    private connection!: amqp.Connection;
-    private channel!: amqp.Channel;
+    private connection!: any;
+    private channel!: any;
     private brokerURL:string; 
     private queueName:string;
 
-    constructor(i_BrokerURL:string='amqp://localhost', i_QueueName:string='response_queue') {
+    constructor(i_BrokerURL:string='amqp://myuser:mypass@localhost:5672', i_QueueName:string='response_queue') {
         this.brokerURL = i_BrokerURL;
         this.queueName = i_QueueName;
-        this.initPublisher();
+        
     }
 
-    private async initPublisher() {
-        try {
-            this.connection = await amqp.connect(this.brokerURL);
-            this.channel = await this.connection.createChannel();
-            await this.channel.assertQueue(this.queueName , { durable: false });
-        } 
-        catch (error) {
-            logger.error('An error has occurred during initialization: ' + error);
-        }
+    public async initPublisher() {
+        this.connection = await connect(this.brokerURL);
+        logger.info('Connected to RabbitMQ server: ' + this.brokerURL);
+        this.channel = await this.connection.createChannel();
+        logger.info('Channel created' + this.channel);
+        await this.channel.assertQueue(this.queueName, {durable: false});
+        logger.info('Queue created: ' + this.queueName);
     }
 
     public async publish(message: any) {
+        
         try {
-            if (!this.channel) {
-                await this.initPublisher();
-            }
-
+            logger.info('Publishing message: ' + message);
+            logger.info('Queue name: ' + this.queueName);
             this.channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(message)));
+            logger.info('Message ' + message + ' published');
         } 
         catch (error) {
             logger.error('An error has occurred: ' + error);
@@ -41,3 +40,5 @@ class MQPublisher {
 const publisher = new MQPublisher();
 
 export default publisher;
+
+
