@@ -40,5 +40,3 @@ class MQPublisher {
 const publisher = new MQPublisher();
 
 export default publisher;
-
-

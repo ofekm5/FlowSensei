@@ -1,10 +1,6 @@
-import { Client, ConnectConfig  } from 'ssh2';
-import { RouterOSAPI } from 'node-routeros';
 import logger from "../logger";
-import fs from 'fs';
-import dotenv from 'dotenv';
+import { RouterOSAPI } from 'node-routeros';
 
-dotenv.config();
 
 interface MarkConnectionParams {
     chain: string;
@@ -43,7 +39,6 @@ interface MarkPacketParams {
     srcAddressList?: string;
     dstAddressList?: string;
     inBridgePort?: string;
-
     outBridgePort?: string;
     time?: string;
     day?: string;
@@ -71,74 +66,23 @@ interface DropPacketParams {
     dstAddressType?: string;
 }
 
-
 class APIClient {
-    private sshConfig: ConnectConfig;
-    private conn: Client;
-    private apiSession: RouterOSAPI;
+    private apiSession!: RouterOSAPI;
 
-    constructor() {
-        this.conn = new Client();
-        this.sshConfig = {
-            host: process.env.DNS_NAME!,
-            port: process.env.SSH_PORT ? +process.env.SSH_PORT : 22, 
-            username: process.env.USERNAME!,
-            password: process.env.PASSWORD!,
-            privateKey: fs.readFileSync('./flowSensei'),
-            passphrase: process.env.PRIVATE_KEY_PASSPHRASE,
-            readyTimeout: 20000
-        };
-        this.apiSession = new RouterOSAPI({
-            host: '127.0.0.1',
-            user: process.env.USERNAME!,
-            password: process.env.PASSWORD!,
-            port: process.env.API_PORT ? +process.env.API_PORT : 8728
-        });
-    }
-
-    public connectSSH(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            this.conn.on('ready', () => {
-                logger.info('SSH connection established');
-                this.initializeSession();
-                resolve();
-            }).connect(this.sshConfig);
-    
-            this.conn.on('error', (err) => {
-                logger.error(`SSH connection error: ${err}`);
-                reject(err);
-            });
-    
-            this.conn.on('end', () => {
-                logger.info('SSH connection ended');
-            });
-    
-            this.conn.on('close', () => {
-                logger.info('SSH connection closed');
-            });
-        });
-    }    
-
-    private initializeSession() {
-        this.apiSession.connect().then(() => {
-            logger.info('API client connected');
-        }).catch((err: any) => {
-            logger.error(`API client connection error: ${err}`);
-        });
-    }
-
-    public async login(){
+    public async login(i_Host:string, i_Username:string, i_Password:string){
         try{
-            const result = this.apiSession.write(`/user/print?where=name=${this.sshConfig.username}`).then(
-                (data) => {
-                    if(data.length > 0 && data[0].password === this.sshConfig.password){
-                        logger.info('user logged in');
-                    }
-                    else{
-                        logger.error('user not found');
-                    }
-                }
-            );
+            this.apiSession = new RouterOSAPI({
+                host: i_Host,
+                user: i_Username,
+                password: i_Password,
+                port: 8728
+            });
+    
+            this.apiSession.connect().then(() => {
+                logger.info('API client connected');
+            }).catch((err: any) => {
+                logger.error(`API client connection error: ${err}`);
+            });
         }
         catch(error){
             logger.error('Failed to login');
@@ -147,6 +91,9 @@ class APIClient {
     }
 
     public async markConnection(params: MarkConnectionParams) {
+        if (!this.apiSession) {
+            throw new Error('API session not initialized');
+        }
         const {
             chain,
             connectionMark,
@@ -200,6 +147,9 @@ class APIClient {
     }
     
     public async markPacket(params: MarkPacketParams) {
+        if (!this.apiSession) {
+            throw new Error('API session not initialized');
+        }
         const {
             chain,
             connectionMark,
@@ -253,6 +203,9 @@ class APIClient {
     }
     
     public async dropPacket(params: DropPacketParams) {
+        if (!this.apiSession) {
+            throw new Error('API session not initialized');
+        }
         const {
             chain,
             passthrough = 'no',
@@ -301,25 +254,33 @@ class APIClient {
         });
     }
 
-    async createAddressLists(urls: string[], listName: string) { // 
-        let promises = [];
-        for (const item of urls) {
-            promises.push(
-                this.apiSession.write('/ip/firewall/address-list/add', [
-                    '=action=add-dst-to-address-list',
-                    `=address-list=${listName}`,
-                    '=chain=forward',
-                    `=content=${item}`,
-                ])
-            );
-        }
-        await Promise.all(promises).then(() => {
-            logger.info('Address lists created');
-        }).catch((error) => {
-            logger.error('Failed to create address lists ' + error);
-            throw new Error('Failed to create address lists');
-        });
+    async addNodeToQueueTree(){
+        //create a queue
+        ///queue tree add name=<name> parent=<parent> packet-marks=<packet-mark> priority=<priority> max-limit=<max-limit> limit-at=<limit-at> burst-limit=<burst-limit> burst-threshold=<burst-threshold> burst-time=<burst-time> queue=<queue-type>
     }
+
+    // async createAddressLists(urls: string[], listName: string) { 
+    //     if (!this.apiSession) {
+    //         throw new Error('API session not initialized');
+    //     }
+    //     let promises = [];
+    //     for (const item of urls) {
+    //         promises.push(
+    //             this.apiSession.write('/ip/firewall/address-list/add', [
+    //                 '=action=add-dst-to-address-list',
+    //                 `=address-list=${listName}`,
+    //                 '=chain=forward',
+    //                 `=content=${item}`,
+    //             ])
+    //         );
+    //     }
+    //     await Promise.all(promises).then(() => {
+    //         logger.info('Address lists created');
+    //     }).catch((error) => {
+    //         logger.error('Failed to create address lists ' + error);
+    //         throw new Error('Failed to create address lists');
+    //     });
+    // }
 }
 
 const apiClient = new APIClient();

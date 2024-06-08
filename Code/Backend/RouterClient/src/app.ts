@@ -1,44 +1,40 @@
 import express, { Request, Response } from 'express';
+import dotenv from 'dotenv';
 import logger from './logger';
-//import cron from 'node-cron';
 import apiClient from './components/APIClient';
-// import transporter from './components/TransportMonitor'
-// import transceiver from './components/MQTransceiver';
+
+dotenv.config();
 const app = express();
-//let isRunning = false;
+
 async function test() {
     try {
-        await apiClient.connectSSH().then(() => {
-            return apiClient.login();
-        });
-        console.log('SSH and API connection established, and user logged in');
-    } catch (error) {
+        await apiClient.login('147.235.196.0', 'admin', '9DCMK8E5PU');
+    } 
+    catch (error) {
         console.error('Failed to establish SSH and API connection or login:', error);
     }
 }
 
-test();
-//Cron job is added to the event loop and executed every 10sec
-// cron.schedule('*/10 * * * * *', () => {
+// async function startConsumer(queueName) {
 //     try {
-//         if (!isRunning) {
-//             isRunning = true;
-//             transceiver.consumeAndSendMessages();//write here the tested function
-//             isRunning = false;
-//         } 
-//         else {
-//             logger.info("Previous task still running. Skipping...");
+//       const connection = await amqp.connect(RABBITMQ_URL);
+//       const channel = await connection.createChannel();
+  
+//       await channel.assertQueue(queueName, { durable: true });
+  
+//       console.log(`Waiting for messages in ${queueName}. To exit press CTRL+C`);
+  
+//       channel.consume(queueName, (msg) => {
+//         if (msg !== null) {
+//           console.log(`Received message from ${queueName}: ${msg.content.toString()}`);
+//           // Process the message here
+//           channel.ack(msg);
 //         }
-//     } 
-//     catch (error) {
-//         logger.error(`${error}`);
+//       }, { noAck: false });
+//     } catch (error) {
+//       console.error('Error in consumer:', error);
 //     }
-// });
-
-// cron.schedule(`*/${transporter.interval}* * * * *`, () => {
-//     const data = transporter.fetchRouterTransport();
-//     transceiver.sendMessage(data);
-// })
+//   }
   
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });
@@ -47,5 +43,7 @@ app.get('/health', (req, res) => {
 const PORT = process.env.PORT || 5000;
   
 app.listen(PORT, () => {
+    test();
+    //startConsumer();
     logger.info(`Server is running on port ${PORT}`);
 });
