@@ -34,6 +34,7 @@ class MQPublisher {
         } 
         catch (error) {
             logger.error('An error has occurred: ' + error);
+            
         }
     }
 }

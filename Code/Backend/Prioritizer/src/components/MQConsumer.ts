@@ -1,5 +1,5 @@
 import {connect} from 'amqplib';
-import logger from '../logger'; 
+import logger from '../logger';
 import { EventEmitter } from 'events';
 //amqp://myuser:mypass@localhost:5672
 //amqp://myuser:mypass@localhost:5673
