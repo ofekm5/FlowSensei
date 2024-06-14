@@ -12,7 +12,6 @@ class MQPublisher {
     constructor(i_BrokerURL:string='amqp://myuser:mypass@localhost:5672', i_QueueName:string='response_queue') {
         this.brokerURL = i_BrokerURL;
         this.queueName = i_QueueName;
-        
     }
 
     public async initPublisher() {
