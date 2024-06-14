@@ -165,9 +165,27 @@ class APIClient {
             throw new Error(`Failed to add drop packet rule`);
         });
     }
-    async addNodeToQueueTree() {
-        //create a queue
-        ///queue tree add name=<name> parent=<parent> packet-marks=<packet-mark> priority=<priority> max-limit=<max-limit> limit-at=<limit-at> burst-limit=<burst-limit> burst-threshold=<burst-threshold> burst-time=<burst-time> queue=<queue-type>
+    async addNodeToQueueTree(params) {
+        if (!this.apiSession) {
+            throw new Error('API session not initialized');
+        }
+        const { name, parent, packetMark, priority, maxLimit, limitAt, burstLimit, burstThreshold, burstTime, queueType, } = params;
+        const command = [
+            `=name=${name}`,
+            `=parent=${parent}`,
+            `=packet-mark=${packetMark}`,
+            `=priority=${priority}`,
+            `=max-limit=${maxLimit}`,
+            `=limit-at=${limitAt}`,
+            `=burst-limit=${burstLimit}`,
+            `=burst-threshold=${burstThreshold}`,
+            `=burst-time=${burstTime}`,
+            `=queue=${queueType}`,
+        ];
+        return this.apiSession.write('/queue/tree/add', command).catch((error) => {
+            logger_1.default.error(`Failed to add node to queue tree for ${name}`);
+            throw new Error(`Failed to add node to queue tree for ${name}`);
+        });
     }
 }
 const apiClient = new APIClient();

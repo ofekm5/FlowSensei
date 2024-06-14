@@ -66,6 +66,19 @@ interface DropPacketParams {
     dstAddressType?: string;
 }
 
+interface AddNodeToQueueTreeParams {
+    name: string;
+    parent: string;
+    packetMark: string;
+    priority: string;
+    maxLimit: string;
+    limitAt: string;
+    burstLimit: string;
+    burstThreshold: string;
+    burstTime: string;
+    queueType: string;
+}
+
 class APIClient {
     private apiSession!: RouterOSAPI;
 
@@ -254,9 +267,56 @@ class APIClient {
         });
     }
 
-    async addNodeToQueueTree(){
-        //create a queue
-        ///queue tree add name=<name> parent=<parent> packet-marks=<packet-mark> priority=<priority> max-limit=<max-limit> limit-at=<limit-at> burst-limit=<burst-limit> burst-threshold=<burst-threshold> burst-time=<burst-time> queue=<queue-type>
+    public async addNodeToQueueTree(params: AddNodeToQueueTreeParams) {
+        if (!this.apiSession) {
+            throw new Error('API session not initialized');
+        }
+        const {
+            name,
+            parent,
+            packetMark,
+            priority,
+            maxLimit,
+            limitAt,
+            burstLimit,
+            burstThreshold,
+            burstTime,
+            queueType,
+        } = params;
+    
+        const command = [
+            `=name=${name}`,
+            `=parent=${parent}`,
+            `=packet-mark=${packetMark}`,
+            `=priority=${priority}`,
+            `=max-limit=${maxLimit}`,
+            `=limit-at=${limitAt}`,
+            `=burst-limit=${burstLimit}`,
+            `=burst-threshold=${burstThreshold}`,
+            `=burst-time=${burstTime}`,
+            `=queue=${queueType}`,
+        ];
+    
+        return this.apiSession.write('/queue/tree/add', command).catch((error) => {
+            logger.error(`Failed to add node to queue tree for ${name}`);
+            throw new Error(`Failed to add node to queue tree for ${name}`);
+        });
+    }
+    
+    public async updateNodePriority(name: string, newPriority: string) {
+        if (!this.apiSession) {
+            throw new Error('API session not initialized');
+        }
+    
+        const command = [
+            `=numbers=${name}`,
+            `=priority=${newPriority}`,
+        ];
+    
+        return this.apiSession.write('/queue/tree/set', command).catch((error) => {
+            logger.error(`Failed to update priority for node ${name}`);
+            throw new Error(`Failed to update priority for node ${name}`);
+        });
     }
 
     // async createAddressLists(urls: string[], listName: string) { 
