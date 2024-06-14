@@ -34,6 +34,7 @@ class MQPublisher {
         } 
         catch (error) {
             logger.error('An error has occurred: ' + error);
+            
         }
     }
 }
@@ -41,3 +42,5 @@ class MQPublisher {
 const publisher = new MQPublisher();
 
 export default publisher;
+
+
