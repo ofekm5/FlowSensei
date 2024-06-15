@@ -30,7 +30,6 @@ async function test() {
             srcPort: '1000',
             inInterface: 'ether1',
             outInterface: 'ether2',
-            srcAddressList: 'srcTestList',
             inBridgePort: 'bridge',
             outBridgePort: 'bridge',
         });
@@ -39,81 +38,73 @@ async function test() {
     catch (error) {
         logger_1.default.error(`Failed to mark connection: ${error}`);
     }
+    try {
+        await APIClient_1.default.markPacket({
+            chain: 'forward',
+            connectionMark: 'testConnection',
+            packetMark: 'testPacket',
+            srcAddress: '192.168.1.1',
+            dstAddress: '192.168.1.2',
+            srcPort: '1000',
+            dstPort: '80',
+            protocol: 'tcp',
+            inInterface: 'ether1',
+            outInterface: 'ether2',
+            inBridgePort: 'bridge',
+            outBridgePort: 'bridge',
+        });
+        logger_1.default.info('markPacket successful');
+    }
+    catch (error) {
+        logger_1.default.error(`Failed to mark packet: ${error}`);
+    }
+    try {
+        await APIClient_1.default.dropPacket({
+            chain: 'forward',
+            packetMark: 'testPacket',
+            srcAddress: '192.168.1.1',
+            dstAddress: '192.168.1.2',
+            srcPort: '1000',
+            dstPort: '80',
+            protocol: 'tcp',
+            inInterface: 'ether1',
+            outInterface: 'bridge',
+            connectionMark: 'testConnection'
+        });
+        logger_1.default.info(`dropPacket successful`);
+    }
+    catch (error) {
+        logger_1.default.error(`Failed to drop packet: ${error}`);
+    }
+    try {
+        await APIClient_1.default.addNodeToQueueTree({
+            name: 'testQueue3',
+            parent: 'global',
+            packetMark: 'testPacket',
+            priority: '1',
+            maxLimit: '10M',
+            limitAt: '5M',
+            burstLimit: '12M',
+            burstThreshold: '8M',
+            burstTime: '10s',
+            queueType: 'default',
+        });
+        logger_1.default.info('addNodeToQueueTree successful');
+    }
+    catch (error) {
+        logger_1.default.error(`Failed to add node to queue tree: ${error}`);
+    }
+    try {
+        await APIClient_1.default.updateNodePriority('testQueue', '2');
+        logger_1.default.info('updateQueueTreeNodePriority successful');
+    }
+    catch (error) {
+        logger_1.default.error(`Failed to update queue tree node priority: ${error}`);
+    }
     finally {
         await APIClient_1.default.disconnect();
-        console.log('Disconnected');
+        logger_1.default.info('Disconnected');
     }
-    // try {
-    //     await apiClient.markPacket({
-    //         chain: 'forward',
-    //         connectionMark: 'testConnection',
-    //         packetMark: 'testPacket',
-    //         srcAddress: '192.168.1.1',
-    //         dstAddress: '192.168.1.2',
-    //         srcPort: '1000',
-    //         dstPort: '80',
-    //         protocol: 'tcp',
-    //         inInterface: 'ether1',
-    //         outInterface: 'ether2',
-    //         srcAddressList: 'srcTestList',
-    //         dstAddressList: 'dstTestList',
-    //         inBridgePort: 'bridge1',
-    //         outBridgePort: 'bridge2',
-    //         time: '12:00-13:00',
-    //         day: 'sunday',
-    //         srcAddressType: 'unicast',
-    //         dstAddressType: 'multicast',
-    //     });
-    //     logger.info('markPacket successful');
-    // } catch (error) {
-    //     logger.error(`Failed to mark packet: ${error}`);
-    // }
-    // try {
-    //     await apiClient.dropPacket({
-    //         chain: 'forward',
-    //         srcAddress: '192.168.1.1',
-    //         dstAddress: '192.168.1.2',
-    //         srcPort: '1000',
-    //         dstPort: '80',
-    //         protocol: 'tcp',
-    //         inInterface: 'ether1',
-    //         outInterface: 'ether2',
-    //         srcAddressList: 'srcTestList',
-    //         dstAddressList: 'dstTestList',
-    //         inBridgePort: 'bridge1',
-    //         outBridgePort: 'bridge2',
-    //         time: '12:00-13:00',
-    //         day: 'sunday',
-    //         srcAddressType: 'unicast',
-    //         dstAddressType: 'multicast',
-    //     });
-    //     logger.info(`dropPacket successful`);
-    // } catch (error) {
-    //     logger.error(`Failed to drop packet: ${error}`);
-    // }
-    // try {
-    //     await apiClient.addNodeToQueueTree({
-    //         name: 'testQueue',
-    //         parent: 'global',
-    //         packetMark: 'testPacket',
-    //         priority: '1',
-    //         maxLimit: '10M',
-    //         limitAt: '5M',
-    //         burstLimit: '12M',
-    //         burstThreshold: '8M',
-    //         burstTime: '10s',
-    //         queueType: 'default',
-    //     });
-    //     logger.info('addNodeToQueueTree successful');
-    // } catch (error) {
-    //     logger.error(`Failed to add node to queue tree: ${error}`);
-    // }
-    // try {
-    //     await apiClient.updateNodePriority('testQueue', '2');
-    //     logger.info('updateQueueTreeNodePriority successful');
-    // } catch (error) {
-    //     logger.error(`Failed to update queue tree node priority: ${error}`);
-    // }
 }
 // async function startConsumer(queueName) {
 //     try {
