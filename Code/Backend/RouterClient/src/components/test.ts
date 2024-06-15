@@ -1,4 +1,4 @@
-import logger from './logger';
+import logger from './components/logger';
 import apiClient from './components/APIClient';
 
 

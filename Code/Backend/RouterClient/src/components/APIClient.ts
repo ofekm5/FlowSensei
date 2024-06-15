@@ -1,29 +1,37 @@
-import logger from "../logger";
+import logger from "./logger";
 import { RouterOSAPI } from 'node-routeros';
 
-interface Marking{
+interface MarkParams{
     chain: string;
     connectionMark?: string;
     passthrough?: string;
     protocol?: string;
     inInterface?: string;
     outInterface?: string;
+    srcAddress?: string;
+    srcPort?: string;
+    dstAddress?: string;
+}
+
+interface ConnectionMarkParams extends MarkParams{
+    ports?: string;
+    srcAddress?: string;
     inBridgePort?: string;
     outBridgePort?: string;
 }
 
-interface ConnectionMarking extends Marking{
-    ports?: string;
-    srcAddress?: string;
-    dstAddress?: string;
-    srcPort?: string;
-}
-
-interface PacketMarking extends Marking{
+interface PacketMarkParams extends MarkParams{
     srcAddress?: string;
     packetMark?: string;
     dstAddress?: string;
-    srcPort?: string;
+    dstPort?: string;
+    inBridgePort?: string;
+    outBridgePort?: string;
+}
+
+interface PacketDropParams extends MarkParams{
+    packetMark?: string;
+    dstAddress?: string;
     dstPort?: string;
 }
 
@@ -64,7 +72,7 @@ class APIClient {
         }
     }
 
-    public async markConnection(params: ConnectionMarking): Promise<void> {
+    public async markConnection(params: ConnectionMarkParams): Promise<void> {
         if (!this.apiSession) {
             throw new Error('API session not initialized');
         }
@@ -108,7 +116,7 @@ class APIClient {
             });
     }    
     
-    public async markPacket(params: PacketMarking) {
+    public async markPacket(params: PacketMarkParams) {
         if (!this.apiSession) {
             throw new Error('API session not initialized');
         }
@@ -155,7 +163,7 @@ class APIClient {
         );
     }
     
-    public async dropPacket(params: PacketMarking) {
+    public async dropPacket(params: PacketDropParams) {
         if (!this.apiSession) {
             throw new Error('API session not initialized');
         }
@@ -168,8 +176,6 @@ class APIClient {
             protocol,
             inInterface,
             outInterface,
-            inBridgePort,
-            outBridgePort,
             connectionMark
         } = params;
     
@@ -185,8 +191,6 @@ class APIClient {
         if (protocol) command.push(`=protocol=${protocol}`);
         if (inInterface) command.push(`=in-interface=${inInterface}`);
         if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
-        if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
         if (connectionMark) command.push(`=connection-mark=${connectionMark}`);
     
         return this.apiSession.write('/ip/firewall/filter/add', command)
