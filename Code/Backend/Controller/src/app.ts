@@ -7,9 +7,148 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 
+interface MarkParams{
+    chain: string,
+    connectionMark?: string,
+    passthrough?: string,
+    protocol?: string,
+    inInterface?: string;
+    outInterface?: string;
+    srcAddress?: string;
+    srcPort?: string;
+    dstPort?: string;
+    dstAddress?: string;
+}
+
+interface ConnectionMarkParams extends MarkParams{
+    srcAdresses?: string;
+    inBridgePort?: string;
+    outBridgePort?: string;
+}
+
+interface PacketMarkParams extends MarkParams{
+    srcAddress?: string;
+    packetMark?: string;
+    dstAddress?: string;
+    dstPort?: string;
+    inBridgePort?: string;
+    outBridgePort?: string;
+}
+
+interface PacketDropParams extends MarkParams{
+    packetMark?: string;
+    dstAddress?: string;
+    dstPort?: string;
+}
+
+interface CreateAddressListParams extends MarkParams{
+    adressList: string;
+    content: string;
+}
+
+interface AddNodeToQueueTreeParams{
+    name: string;
+    parent?: string;
+    packetMark?: string;
+    priority?: string;
+    maxLimit?: string;
+    limitAt?: string;
+    burstLimit?: string;
+    burstThreshold?: string;
+    burstTime?: string;
+    queueType?: string;
+}
+
+interface UpdateNodePriorityParams{
+    name: string;
+    newPriority: string;
+}
+
+const commonServicesToPorts = [
+    {
+        service: 'email',
+        protocol: 'tcp',
+        dstPorts: ['25', '587', '465', '110', '995', '143', '993']
+    },
+    {
+        service: 'email',
+        protocol: 'udp',
+        dstPorts: ['53']
+    },
+    {
+      service: 'web-browsing',
+      protocol: 'tcp',
+      dstPorts: ['80', '443']
+    },
+    {
+      service: 'web-browsing',
+      protocol: 'udp',
+      dstPorts: ['53']
+    },
+    {
+      service: 'voip',
+      protocol: 'udp',
+      dstPorts: ['19302-19309', '3478-3481', '8801-8810','50000-50059' ]
+    },
+    {
+        service: 'voip',
+        protocol: 'tcp',
+        dstPorts: ['80', '443', '8801', '8802', '50000-50059']
+    },
+    {
+        service: 'file-transfer',
+        protocol: 'tcp',
+        dstPorts: ['20', '21', '22', '80', '443']
+    }, 
+    {
+        service: 'streaming',
+        protocol: 'tcp',
+        dstPorts: ['80', '443', '1935']
+    },
+    {
+        service: 'streaming',
+        protocol: 'udp',
+        dstPorts: ['1935']
+    },
+] 
+
 const app = express();
 app.use(express.json()); 
+sendConnectionMarksAndPacketMarks();
 
+
+async function sendConnectionMarksAndPacketMarks() {
+    const connectionMarkNames = new Set<string>();
+    for(let service of commonServicesToPorts){
+        const serviceName = service.service;
+        const protocol = service.protocol;
+        const dstPorts = service.dstPorts;
+        const dstPortsString = dstPorts.join(',');
+        connectionMarkNames.add(serviceName);
+        const connectionMarkParams: ConnectionMarkParams = {
+            chain: 'prerouting',
+            connectionMark: serviceName,
+            protocol: protocol,
+            dstPort: dstPortsString,
+            passthrough: 'yes'
+        }
+
+        const connectionMarkMsg = JSON.stringify(connectionMarkParams);
+        await publisher.publish(connectionMarkMsg);
+    }
+
+    for(let connectionMark of connectionMarkNames){
+        const packetMarkParams: PacketMarkParams = {
+            chain: 'prerouting',
+            connectionMark: connectionMark,
+            packetMark: connectionMark + 'packet',
+            passthrough: 'no'
+        }
+
+        const packetMarkMsg = JSON.stringify(packetMarkParams);
+        await publisher.publish(packetMarkMsg);
+    }
+}
 
 app.post('/createNewPriorityQueue', authenticateToken, async (req: any, res: any) => {
     try{
@@ -20,17 +159,32 @@ app.post('/createNewPriorityQueue', authenticateToken, async (req: any, res: any
             logger.info('Invalid request: ' + msg);
             return;
         }
+
+        const upperTreeMsgParams: AddNodeToQueueTreeParams = {
+            name: 'root',
+            parent: 'global',
+            maxLimit: '100M',
+        }
+
+        const firstQueueTreeMsg = JSON.stringify(upperTreeMsgParams);
+        await publisher.publish(firstQueueTreeMsg); 
         
         const user = req.user;
         const routerId = user.routerId;
         const priorities = msg.priorities;
         logger.info('priorities: ' + priorities);
-        const msgToPublish = {
-            type: 'createNewPriorityQueue',
-            priorities: priorities
-        }
         await dbClient.insertNewPriorities(routerId, priorities);
-        await publisher.publish(msgToPublish);
+        for(let priority of priorities){
+            const packetMark = priority + '-packet';
+            const addNodeToQueueTreeParams: AddNodeToQueueTreeParams = {
+                name: 'root',
+                packetMark: packetMark,
+                priority: (priorities.indexOf(priority) + 1).toString(),
+            }
+
+            const msgToPublish = JSON.stringify(addNodeToQueueTreeParams);
+            await publisher.publish(msgToPublish);
+        }
         await consumer.consume();
         consumer.events.on('message', (message: any) => {
             logger.info('message: ' + message);
@@ -61,14 +215,15 @@ app.put('/updatePriorityQueue', authenticateToken, async (req: any, res: any) =>
             const serviceName = element.serviceName;
             const priority = element.priority;
             await dbClient.updatePriority(routerId, serviceName, priority);
-            const serviceToPriority = {
-                serviceName: serviceName,
-                priority: priority
+            const updateNodePriority: UpdateNodePriorityParams = {
+                name: serviceName,
+                newPriority: priority
             }
-            msgToPublish.push(serviceToPriority);
+            
+            const msgToPublish = JSON.stringify(updateNodePriority);
+            await publisher.publish(msgToPublish);
         }
 
-        await publisher.publish(msgToPublish);
         const response = consumer.consume();
         consumer.events.on('message', (message: any) => {
             logger.info('message: ' + message);
@@ -99,7 +254,7 @@ app.get('/login', async (req, res) => {
         logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}`);
         const msgToSend = {
             type: 'login',
-            username: username,
+            userame: username,
             password: password,
             publicIp: publicIp
         }
@@ -168,10 +323,13 @@ app.post('/signUp', async (req, res) => {
 });
 
 app.post('/logout', async (req, res) => {
-
+    await publisher.publish('logout');
 });
 
-function authenticateToken(req: any, res: any, next: any){
+app.post('/blockService', authenticateToken, async (req: any, res: any) => {
+});
+
+async function authenticateToken(req: any, res: any, next: any){
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if(token == null){
@@ -194,4 +352,6 @@ app.listen(5000, () => {
     logger.info('Server is running on port 5000');
     
 });
+
+
 
