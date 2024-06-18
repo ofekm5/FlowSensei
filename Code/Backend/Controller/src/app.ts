@@ -3,7 +3,18 @@ import publisher from "./components/MQPublisher";
 import consumer from "./components/MQConsumer";
 import express, { NextFunction } from 'express';
 import dbClient from "./components/DBClient";
+import amqp from 'amqplib/callback_api';
+import { v4 as uuidv4 } from 'uuid';
+import { connect } from "amqplib";
 const jwt = require('jsonwebtoken');
+const exchange = 'requests_exchange';
+const clientId = 'client1'; 
+const RABBITMQ_URL = 'amqp://localhost';
+const REQUEST_QUEUE = 'request_queue';
+const RESPONSE_QUEUE = 'response_queue'; 
+let channel: amqp.Channel;
+let connection: amqp.Connection;
+
 require('dotenv').config();
 
 
@@ -113,9 +124,56 @@ const commonServicesToPorts = [
 ] 
 
 const app = express();
-app.use(express.json()); 
+const responsePromises = new Map<string, { resolve: (value: any) => void, reject: (reason?: any) => void }>();
+app.use(express.json());
+
+
 sendConnectionMarksAndPacketMarks();
 
+async function initRabbitMQ(){
+    connect(RABBITMQ_URL, (error0: any, conn: any) => {
+        if (error0) {
+            logger.error('Failed to connect to RabbitMQ:' + error0);
+            process.exit(1);
+          }
+            
+          logger.info('Connected to RabbitMQ');
+          connection = conn;
+          connection.createChannel((error1: any, ch: any) => {
+            if (error1) {
+                logger.error('Failed to create channel: ' + error1);
+                process.exit(1);
+            }
+
+            logger.info('Channel created');
+            channel = ch;
+            channel.assertQueue(REQUEST_QUEUE, {durable: false});
+            channel.assertQueue(RESPONSE_QUEUE, {durable: false});
+            channel.consume(RESPONSE_QUEUE, (msg: any) => {
+                logger.info('Received message: ' + msg.content.toString());
+                if(msg != null){
+                    const correlationId = msg.properties.correlationId;
+                    logger.info('correlationId: ' + correlationId);
+                    const responseContent = msg.content.toString();
+                    responsePromises.get(correlationId)?.resolve(responseContent);
+                    responsePromises.delete(correlationId);
+                    channel.ack(msg);
+                }
+            });              
+         });
+    });
+}
+
+async function sendMessageAndWaitForResponse(msg: any): Promise<any>{
+    return new Promise((resolve, reject) => {
+        const correlationId = uuidv4();
+        responsePromises.set(correlationId, { resolve, reject });
+        channel.sendToQueue(REQUEST_QUEUE, Buffer.from(msg),{
+            correlationId: correlationId, 
+            replyTo: RESPONSE_QUEUE
+        });
+    });
+}
 
 async function sendConnectionMarksAndPacketMarks() {
     const connectionMarkNames = new Set<string>();
@@ -134,7 +192,8 @@ async function sendConnectionMarksAndPacketMarks() {
         }
 
         const connectionMarkMsg = JSON.stringify(connectionMarkParams);
-        await publisher.publish(connectionMarkMsg);
+        const response = await sendMessageAndWaitForResponse(connectionMarkMsg);
+        logger.info('sent connection mark: ' + response);
     }
 
     for(let connectionMark of connectionMarkNames){
@@ -146,7 +205,8 @@ async function sendConnectionMarksAndPacketMarks() {
         }
 
         const packetMarkMsg = JSON.stringify(packetMarkParams);
-        await publisher.publish(packetMarkMsg);
+        const response = await sendMessageAndWaitForResponse(packetMarkMsg);
+        logger.info('sent packet mark: ' + response);
     }
 }
 
@@ -167,7 +227,7 @@ app.post('/createNewPriorityQueue', authenticateToken, async (req: any, res: any
         }
 
         const firstQueueTreeMsg = JSON.stringify(upperTreeMsgParams);
-        await publisher.publish(firstQueueTreeMsg); 
+        const response = await sendMessageAndWaitForResponse(firstQueueTreeMsg);
         
         const user = req.user;
         const routerId = user.routerId;
@@ -183,13 +243,11 @@ app.post('/createNewPriorityQueue', authenticateToken, async (req: any, res: any
             }
 
             const msgToPublish = JSON.stringify(addNodeToQueueTreeParams);
-            await publisher.publish(msgToPublish);
+            const response = await sendMessageAndWaitForResponse(msgToPublish);
+            logger.info('response sent : ' + response);
+            
         }
-        await consumer.consume();
-        consumer.events.on('message', (message: any) => {
-            logger.info('message: ' + message);
-            res.status(200).json({response: message});
-        });
+        res.status(200).json({response: "created new priority queue succesfully"});
     }
     catch(error){
         logger.error('An error has occurred: ' + error);
@@ -221,14 +279,10 @@ app.put('/updatePriorityQueue', authenticateToken, async (req: any, res: any) =>
             }
             
             const msgToPublish = JSON.stringify(updateNodePriority);
-            await publisher.publish(msgToPublish);
+            const response = await sendMessageAndWaitForResponse(msgToPublish);
         }
 
-        const response = consumer.consume();
-        consumer.events.on('message', (message: any) => {
-            logger.info('message: ' + message);
-            res.status(200).json({response: message});
-        });
+        res.status(200).json({response: "updated priority queue succesfully"});
     }
     catch(error){
         logger.error('An error has occurred: ' + error);
@@ -258,25 +312,22 @@ app.get('/login', async (req, res) => {
             password: password,
             publicIp: publicIp
         }
-        await publisher.publish(msgToSend);
-        await consumer.consume();
-        consumer.events.on('message', (message: any) => {
-            logger.info('message: ' + message);
-            if(message === 'success'){
-                const routerId = dbClient.getRouterId(username);
-                const payload = {routerId: routerId};
-                const token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
-                const responseToUser = {
-                    token: token,
-                    message: message
-                }
-                res.status(200).json({response: responseToUser});
+        const response = await sendMessageAndWaitForResponse(JSON.stringify(msgToSend));
+        logger.info('message: ' + response);
+        if(response === 'success'){
+            const routerId = dbClient.getRouterId(username);
+            const payload = {routerId: routerId};
+            const token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
+            const responseToUser = {
+                token: token,
+                message: response
             }
-            else{
-                res.status(400).json({response: message});
-            }
-        });
-   } 
+            res.status(200).json({response: responseToUser});
+        }
+        else{
+            res.status(400).json({response: "failed to login"});
+        }
+    } 
    catch (error) {
         logger.error('An error has occurred: ' + error);
         res.status(500).json({error: 'An error has occurred ' + error});
@@ -301,21 +352,17 @@ app.post('/signUp', async (req, res) => {
             password: password,
             publicIp: publicIp
         }
-        await publisher.publish(msgToPublish)
-        await consumer.consume();
-        consumer.events.on('message', async (message: any) => {
-            logger.info('message: ' + message);
-            if(message === 'success'){
+        const response = await sendMessageAndWaitForResponse(JSON.stringify(msgToPublish));
+        logger.info('response to signUp: ' + response);
+            if(response === 'success'){
                 await dbClient.insertNewUser(username);
-                res.status(200).json({response: message});
+                res.status(200).json({response: response});
             }
             else{
-                res.status(400).json({response: message});
+                res.status(400).json({response: response});
             }
-        });
-
-        logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}`);
-    }
+        }
+    
     catch (error) {
         logger.error('An error has occurred: ' + error);
         res.status(500).json({error: 'An error has occurred ' + error});
@@ -352,6 +399,8 @@ app.listen(5000, () => {
     logger.info('Server is running on port 5000');
     
 });
+
+
 
 
 
