@@ -8,5 +8,8 @@
     "routeros-client": "^1.1.2",
     "sse-stream": "^0.0.5",
     "winston": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.8"
   }
 }
