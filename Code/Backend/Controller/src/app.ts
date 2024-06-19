@@ -126,9 +126,12 @@ const commonServicesToPorts = [
 const app = express();
 const responsePromises = new Map<string, { resolve: (value: any) => void, reject: (reason?: any) => void }>();
 app.use(express.json());
+initializeRabbitMQAndSendMarks();
 
-
-sendConnectionMarksAndPacketMarks();
+async function initializeRabbitMQAndSendMarks(){
+    await initRabbitMQ();
+    sendConnectionMarksAndPacketMarks();
+}
 
 async function initRabbitMQ(){
     connect(RABBITMQ_URL, (error0: any, conn: any) => {
@@ -210,7 +213,7 @@ async function sendConnectionMarksAndPacketMarks() {
     }
 }
 
-app.post('/createNewPriorityQueue', authenticateToken, async (req: any, res: any) => {
+app.post('/service', authenticateToken, async (req: any, res: any) => {
     try{
         const msg = req.body;
 
@@ -255,7 +258,7 @@ app.post('/createNewPriorityQueue', authenticateToken, async (req: any, res: any
     }
 });
 
-app.put('/updatePriorityQueue', authenticateToken, async (req: any, res: any) => {
+app.put('/service', authenticateToken, async (req: any, res: any) => {
     try{
         const msg = req.body;
         let msgToPublish = [];
