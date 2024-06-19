@@ -45,6 +45,7 @@ export function initRabbitMQ(){
             });
         });
     });
+    
 }
 
 export function sendMessageToQueue(msg: any): Promise<any>{
