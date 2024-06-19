@@ -49,18 +49,18 @@ interface AddNodeToQueueTreeParams {
 }
 
 class APIClient {
-    private apiSession!: RouterOSAPI;
+    private apiSessions: { [key: string]: RouterOSAPI } = {};
 
-    public async login(i_Host:string, i_Username:string, i_Password:string){
+    public async login(i_Host:string, i_Username:string, i_Password:string, i_RouterID:string){
         try{
-            this.apiSession = new RouterOSAPI({
+            this.apiSessions[i_RouterID] = new RouterOSAPI({
                 host: i_Host,
                 user: i_Username,
                 password: i_Password,
                 port: 8728
             });
     
-            return this.apiSession.connect().then(() => {
+            return this.apiSessions[i_RouterID].connect().then(() => {
                 logger.info('API client connected');
             }).catch((err: any) => {
                 logger.error(`API client connection error: ${err}`);
@@ -72,8 +72,8 @@ class APIClient {
         }
     }
 
-    public async markConnection(params: ConnectionMarkParams): Promise<void> {
-        if (!this.apiSession) {
+    public async markConnection(i_RouterID:string, params: ConnectionMarkParams): Promise<void> {
+        if (!this.apiSessions) {
             throw new Error('API session not initialized');
         }
         const {
@@ -108,7 +108,7 @@ class APIClient {
         if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
         if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
     
-        return this.apiSession.write('/ip/firewall/mangle/add', command)
+        return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
             .then(() => logger.info(`Mangle connection rule for ${connectionMark} added successfully`))
             .catch((error) => {
                 logger.error(`Failed to add mangle connection rule for ${connectionMark}: ${error}`);
@@ -116,8 +116,8 @@ class APIClient {
             });
     }    
     
-    public async markPacket(params: PacketMarkParams) {
-        if (!this.apiSession) {
+    public async markPacket(i_RouterID:string, params: PacketMarkParams) {
+        if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
         const {
@@ -154,7 +154,7 @@ class APIClient {
         if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
         if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
     
-        return this.apiSession.write('/ip/firewall/mangle/add', command)
+        return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
             .then(() => logger.info(`Mangle packet rule for ${packetMark} added successfully`))
             .catch((error) => {
                 logger.error(`Failed to add mangle packet rule for ${packetMark}: ${error}`);
@@ -163,8 +163,8 @@ class APIClient {
         );
     }
     
-    public async dropPacket(params: PacketDropParams) {
-        if (!this.apiSession) {
+    public async dropPacket(i_RouterID:string, params: PacketDropParams) {
+        if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
         const {
@@ -193,7 +193,7 @@ class APIClient {
         if (outInterface) command.push(`=out-interface=${outInterface}`);
         if (connectionMark) command.push(`=connection-mark=${connectionMark}`);
     
-        return this.apiSession.write('/ip/firewall/filter/add', command)
+        return this.apiSessions[i_RouterID].write('/ip/firewall/filter/add', command)
             .then(() => logger.info(`Drop packet rule added successfully`))
             .catch((error) => {
                 logger.error(`Failed to add drop packet rule: ${error}`);
@@ -202,8 +202,8 @@ class APIClient {
         );
     }
 
-    public async addNodeToQueueTree(params: AddNodeToQueueTreeParams) {
-        if (!this.apiSession) {
+    public async addNodeToQueueTree(i_RouterID:string, params: AddNodeToQueueTreeParams) {
+        if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
         const {
@@ -232,7 +232,7 @@ class APIClient {
             `=queue=${queueType}`,
         ];
     
-        return this.apiSession.write('/queue/tree/add', command)
+        return this.apiSessions[i_RouterID].write('/queue/tree/add', command)
             .then(() => logger.info(`Node ${name} added to queue tree successfully`))
             .catch((error) => {
                 logger.error(`Failed to add node to queue tree for ${name}: ${error}`);
@@ -241,8 +241,8 @@ class APIClient {
         );
     }
     
-    public async updateNodePriority(name: string, newPriority: string) {
-        if (!this.apiSession) {
+    public async updateNodePriority(i_RouterID:string, name: string, newPriority: string) {
+        if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
     
@@ -251,7 +251,7 @@ class APIClient {
             `=priority=${newPriority}`,
         ];
     
-        return this.apiSession.write('/queue/tree/set', command)
+        return this.apiSessions[i_RouterID].write('/queue/tree/set', command)
             .then(() => logger.info(`Priority for node ${name} updated successfully`))
             .catch((error) => {
                 logger.error(`Failed to update priority for node ${name}: ${error}`);
@@ -260,9 +260,9 @@ class APIClient {
         );
     }
 
-    public async disconnect(): Promise<void> {
-        if (this.apiSession) {
-            await this.apiSession.close();
+    public async disconnect(i_RouterID:string): Promise<void> {
+        if (this.apiSessions[i_RouterID]) {
+            await this.apiSessions[i_RouterID].close();
             logger.info('API client disconnected');
         }
     }

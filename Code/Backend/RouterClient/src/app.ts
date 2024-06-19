@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import logger from './components/logger';
-import initMQTransport from './components/MQPublisher';
+import initMQTransport from './components/MQClient';
 
 dotenv.config();
 const app = express();
