@@ -1,69 +1,38 @@
-import logger from "../logger";
+import logger from "./logger";
 import { RouterOSAPI } from 'node-routeros';
 
-
-interface MarkConnectionParams {
+interface MarkParams{
     chain: string;
-    connectionMark: string;
+    connectionMark?: string;
     passthrough?: string;
-    ports?: string | null;
-    protocol?: string | null;
-    addressList?: string;
-    srcAddress?: string;
-    dstAddress?: string;
-    srcPort?: string;
-    inInterface?: string;
-    outInterface?: string;
-    connectionType?: string;
-    srcAddressList?: string;
-    inBridgePort?: string;
-    outBridgePort?: string;
-    time?: string;
-    day?: string;
-    srcAddressType?: string;
-    dstAddressType?: string;
-}
-
-interface MarkPacketParams {
-    chain: string;
-    connectionMark: string;
-    packetMark: string;
-    passthrough?: string;
-    srcAddress?: string;
-    dstAddress?: string;
-    srcPort?: string;
-    dstPort?: string;
     protocol?: string;
     inInterface?: string;
     outInterface?: string;
-    srcAddressList?: string;
-    dstAddressList?: string;
-    inBridgePort?: string;
-    outBridgePort?: string;
-    time?: string;
-    day?: string;
-    srcAddressType?: string;
-    dstAddressType?: string;
+    srcAddress?: string;
+    srcPort?: string;
+    dstAddress?: string;
 }
 
-interface DropPacketParams {
-    chain: string;
-    passthrough?: string;
+interface ConnectionMarkParams extends MarkParams{
+    ports?: string;
     srcAddress?: string;
-    dstAddress?: string;
-    srcPort?: string;
-    dstPort?: string;
-    protocol?: string;
-    inInterface?: string;
-    outInterface?: string;
-    srcAddressList?: string;
-    dstAddressList?: string;
     inBridgePort?: string;
     outBridgePort?: string;
-    time?: string;
-    day?: string;
-    srcAddressType?: string;
-    dstAddressType?: string;
+}
+
+interface PacketMarkParams extends MarkParams{
+    srcAddress?: string;
+    packetMark?: string;
+    dstAddress?: string;
+    dstPort?: string;
+    inBridgePort?: string;
+    outBridgePort?: string;
+}
+
+interface PacketDropParams extends MarkParams{
+    packetMark?: string;
+    dstAddress?: string;
+    dstPort?: string;
 }
 
 interface AddNodeToQueueTreeParams {
@@ -91,7 +60,7 @@ class APIClient {
                 port: 8728
             });
     
-            this.apiSession.connect().then(() => {
+            return this.apiSession.connect().then(() => {
                 logger.info('API client connected');
             }).catch((err: any) => {
                 logger.error(`API client connection error: ${err}`);
@@ -103,7 +72,7 @@ class APIClient {
         }
     }
 
-    public async markConnection(params: MarkConnectionParams) {
+    public async markConnection(params: ConnectionMarkParams): Promise<void> {
         if (!this.apiSession) {
             throw new Error('API session not initialized');
         }
@@ -113,20 +82,13 @@ class APIClient {
             passthrough = 'yes',
             ports,
             protocol,
-            addressList,
             srcAddress,
             dstAddress,
             srcPort,
             inInterface,
             outInterface,
-            connectionType,
-            srcAddressList,
             inBridgePort,
             outBridgePort,
-            time,
-            day,
-            srcAddressType,
-            dstAddressType,
         } = params;
     
         const command = [
@@ -138,28 +100,23 @@ class APIClient {
     
         if (ports) command.push(`=dst-port=${ports}`);
         if (protocol) command.push(`=protocol=${protocol}`);
-        if (addressList) command.push(`=dst-address-list=${addressList}`);
         if (srcAddress) command.push(`=src-address=${srcAddress}`);
         if (dstAddress) command.push(`=dst-address=${dstAddress}`);
         if (srcPort) command.push(`=src-port=${srcPort}`);
         if (inInterface) command.push(`=in-interface=${inInterface}`);
         if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (connectionType) command.push(`=connection-type=${connectionType}`);
-        if (srcAddressList) command.push(`=src-address-list=${srcAddressList}`);
         if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
         if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
-        if (time) command.push(`=time=${time}`);
-        if (day) command.push(`=day=${day}`);
-        if (srcAddressType) command.push(`=src-address-type=${srcAddressType}`);
-        if (dstAddressType) command.push(`=dst-address-type=${dstAddressType}`);
     
-        return this.apiSession.write('/ip/firewall/mangle/add', command).catch((error) => {
-            logger.error(`Failed to add mangle connection rule for ${connectionMark}`);
-            throw new Error(`Failed to add mangle connection rule for ${connectionMark}`);
-        });
-    }
+        return this.apiSession.write('/ip/firewall/mangle/add', command)
+            .then(() => logger.info(`Mangle connection rule for ${connectionMark} added successfully`))
+            .catch((error) => {
+                logger.error(`Failed to add mangle connection rule for ${connectionMark}: ${error}`);
+                throw new Error(`Failed to add mangle connection rule for ${connectionMark}`);
+            });
+    }    
     
-    public async markPacket(params: MarkPacketParams) {
+    public async markPacket(params: PacketMarkParams) {
         if (!this.apiSession) {
             throw new Error('API session not initialized');
         }
@@ -175,14 +132,8 @@ class APIClient {
             protocol,
             inInterface,
             outInterface,
-            srcAddressList,
-            dstAddressList,
             inBridgePort,
             outBridgePort,
-            time,
-            day,
-            srcAddressType,
-            dstAddressType,
         } = params;
     
         const command = [
@@ -200,28 +151,24 @@ class APIClient {
         if (protocol) command.push(`=protocol=${protocol}`);
         if (inInterface) command.push(`=in-interface=${inInterface}`);
         if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (srcAddressList) command.push(`=src-address-list=${srcAddressList}`);
-        if (dstAddressList) command.push(`=dst-address-list=${dstAddressList}`);
         if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
         if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
-        if (time) command.push(`=time=${time}`);
-        if (day) command.push(`=day=${day}`);
-        if (srcAddressType) command.push(`=src-address-type=${srcAddressType}`);
-        if (dstAddressType) command.push(`=dst-address-type=${dstAddressType}`);
     
-        return this.apiSession.write('/ip/firewall/mangle/add', command).catch((error) => {
-            logger.error(`Failed to add mangle packet rule for ${connectionMark}`);
-            throw new Error(`Failed to add mangle packet rule for ${connectionMark}`);
-        });
+        return this.apiSession.write('/ip/firewall/mangle/add', command)
+            .then(() => logger.info(`Mangle packet rule for ${packetMark} added successfully`))
+            .catch((error) => {
+                logger.error(`Failed to add mangle packet rule for ${packetMark}: ${error}`);
+                throw new Error(`Failed to add mangle packet rule for ${packetMark}`);
+            }
+        );
     }
     
-    public async dropPacket(params: DropPacketParams) {
+    public async dropPacket(params: PacketDropParams) {
         if (!this.apiSession) {
             throw new Error('API session not initialized');
         }
         const {
             chain,
-            passthrough = 'no',
             srcAddress,
             dstAddress,
             srcPort,
@@ -229,20 +176,12 @@ class APIClient {
             protocol,
             inInterface,
             outInterface,
-            srcAddressList,
-            dstAddressList,
-            inBridgePort,
-            outBridgePort,
-            time,
-            day,
-            srcAddressType,
-            dstAddressType,
+            connectionMark
         } = params;
     
         const command = [
             '=action=drop',
-            `=chain=${chain}`,
-            `=passthrough=${passthrough}`,
+            `=chain=${chain}`
         ];
     
         if (srcAddress) command.push(`=src-address=${srcAddress}`);
@@ -252,19 +191,15 @@ class APIClient {
         if (protocol) command.push(`=protocol=${protocol}`);
         if (inInterface) command.push(`=in-interface=${inInterface}`);
         if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (srcAddressList) command.push(`=src-address-list=${srcAddressList}`);
-        if (dstAddressList) command.push(`=dst-address-list=${dstAddressList}`);
-        if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
-        if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
-        if (time) command.push(`=time=${time}`);
-        if (day) command.push(`=day=${day}`);
-        if (srcAddressType) command.push(`=src-address-type=${srcAddressType}`);
-        if (dstAddressType) command.push(`=dst-address-type=${dstAddressType}`);
+        if (connectionMark) command.push(`=connection-mark=${connectionMark}`);
     
-        return this.apiSession.write('/ip/firewall/mangle/add', command).catch((error) => {
-            logger.error(`Failed to add drop packet rule`);
-            throw new Error(`Failed to add drop packet rule`);
-        });
+        return this.apiSession.write('/ip/firewall/filter/add', command)
+            .then(() => logger.info(`Drop packet rule added successfully`))
+            .catch((error) => {
+                logger.error(`Failed to add drop packet rule: ${error}`);
+                throw new Error(`Failed to add drop packet rule`);
+            }
+        );
     }
 
     public async addNodeToQueueTree(params: AddNodeToQueueTreeParams) {
@@ -297,10 +232,13 @@ class APIClient {
             `=queue=${queueType}`,
         ];
     
-        return this.apiSession.write('/queue/tree/add', command).catch((error) => {
-            logger.error(`Failed to add node to queue tree for ${name}`);
-            throw new Error(`Failed to add node to queue tree for ${name}`);
-        });
+        return this.apiSession.write('/queue/tree/add', command)
+            .then(() => logger.info(`Node ${name} added to queue tree successfully`))
+            .catch((error) => {
+                logger.error(`Failed to add node to queue tree for ${name}: ${error}`);
+                throw new Error(`Failed to add node to queue tree for ${name}`);
+            }
+        );
     }
     
     public async updateNodePriority(name: string, newPriority: string) {
@@ -313,34 +251,21 @@ class APIClient {
             `=priority=${newPriority}`,
         ];
     
-        return this.apiSession.write('/queue/tree/set', command).catch((error) => {
-            logger.error(`Failed to update priority for node ${name}`);
-            throw new Error(`Failed to update priority for node ${name}`);
-        });
+        return this.apiSession.write('/queue/tree/set', command)
+            .then(() => logger.info(`Priority for node ${name} updated successfully`))
+            .catch((error) => {
+                logger.error(`Failed to update priority for node ${name}: ${error}`);
+                throw new Error(`Failed to update priority for node ${name}`);
+            }
+        );
     }
 
-    // async createAddressLists(urls: string[], listName: string) { 
-    //     if (!this.apiSession) {
-    //         throw new Error('API session not initialized');
-    //     }
-    //     let promises = [];
-    //     for (const item of urls) {
-    //         promises.push(
-    //             this.apiSession.write('/ip/firewall/address-list/add', [
-    //                 '=action=add-dst-to-address-list',
-    //                 `=address-list=${listName}`,
-    //                 '=chain=forward',
-    //                 `=content=${item}`,
-    //             ])
-    //         );
-    //     }
-    //     await Promise.all(promises).then(() => {
-    //         logger.info('Address lists created');
-    //     }).catch((error) => {
-    //         logger.error('Failed to create address lists ' + error);
-    //         throw new Error('Failed to create address lists');
-    //     });
-    // }
+    public async disconnect(): Promise<void> {
+        if (this.apiSession) {
+            await this.apiSession.close();
+            logger.info('API client disconnected');
+        }
+    }
 }
 
 const apiClient = new APIClient();

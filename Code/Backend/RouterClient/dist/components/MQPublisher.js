@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const amqplib_1 = require("amqplib");
 const logger_1 = __importDefault(require("../logger"));
 //amqp://myuser:mypass@localhost:5672
+//amqp://myuser:mypass@localhost:5673
 class MQPublisher {
     constructor(i_BrokerURL = 'amqp://myuser:mypass@localhost:5672', i_QueueName = 'response_queue') {
         this.brokerURL = i_BrokerURL;

@@ -1,43 +1,90 @@
-import {connect} from 'amqplib';
-import logger from '../logger'; 
-//amqp://myuser:mypass@localhost:5672
-//amqp://myuser:mypass@localhost:5673
+import amqp, { Channel, Connection, Message } from 'amqplib/callback_api';
+import logger from './logger';
+import apiClient from './APIClient'; 
 
-class MQPublisher {
-    private connection!: any;
-    private channel!: any;
-    private brokerURL:string; 
-    private queueName:string;
+const exchange = 'requests_exchange';
+const queue = 'server_queue';
+const rabbitMqUrl = 'amqp://myuser:mypass@localhost:5672';
 
-    constructor(i_BrokerURL:string='amqp://myuser:mypass@localhost:5672', i_QueueName:string='response_queue') {
-        this.brokerURL = i_BrokerURL;
-        this.queueName = i_QueueName;
-        
-    }
+function processMessage(message: string): string {
+    let responseMessage = { Status: 'failed' };
 
-    public async initPublisher() {
-        this.connection = await connect(this.brokerURL);
-        logger.info('Connected to RabbitMQ server: ' + this.brokerURL);
-        this.channel = await this.connection.createChannel();
-        logger.info('Channel created' + this.channel);
-        await this.channel.assertQueue(this.queueName, {durable: false});
-        logger.info('Queue created: ' + this.queueName);
-    }
+    try {
+        const parsedMessage = JSON.parse(message);
 
-    public async publish(message: any) {
-        
-        try {
-            logger.info('Publishing message: ' + message);
-            logger.info('Queue name: ' + this.queueName);
-            this.channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(message)));
-            logger.info('Message ' + message + ' published');
-        } 
-        catch (error) {
-            logger.error('An error has occurred: ' + error);
+        const { Type, Host, Username, Password, RouterID } = parsedMessage;
+
+        if (Type && Host && Username && Password && RouterID) {
+            responseMessage.Status = 'ok';
+        } else {
+            logger.error('Message missing required fields');
         }
+    } catch (error) {
+        logger.error(`Error processing message: ${error}`);
     }
+
+    return JSON.stringify(responseMessage);
 }
 
-const publisher = new MQPublisher();
+const initMQTransport = () => {
+    amqp.connect(rabbitMqUrl, (error0: any, connection: Connection) => {
+        if (error0) {
+            logger.error(`Connection error: ${error0}`);
+            setTimeout(initMQTransport, 5000); 
+            return;
+        }
 
-export default publisher;
+        connection.createChannel((error1: any, channel: Channel) => {
+            if (error1) {
+                logger.error(`Channel error: ${error1}`);
+                connection.close();
+                setTimeout(initMQTransport, 5000); 
+                return;
+            }
+
+            channel.assertExchange(exchange, 'direct', { durable: false });
+            channel.assertQueue(queue, { durable: false }, (error2: any, q: amqp.Replies.AssertQueue) => {
+                if (error2) {
+                    logger.error(`Queue assertion error: ${error2}`);
+                    channel.close(() => {});
+                    connection.close(() => {});
+                    setTimeout(initMQTransport, 5000); 
+                    return;
+                }
+
+                channel.bindQueue(q.queue, exchange, 'request_key');
+
+                channel.prefetch(1); 
+                logger.info(' [x] Awaiting RPC requests');
+
+                channel.consume(q.queue, (msg: Message | null) => {
+                    if (!msg) {
+                        return;
+                    }
+
+                    const messageContent = msg.content.toString();
+                    logger.info(` [.] Received ${messageContent}`);
+
+                    const response = processMessage(messageContent);
+                    channel.sendToQueue(msg.properties.replyTo, Buffer.from(response), {
+                        correlationId: msg.properties.correlationId
+                    });
+
+                    channel.ack(msg);
+                });
+            });
+        });
+
+        connection.on('error', (err) => {
+            logger.error(`Connection error: ${err}`);
+            setTimeout(initMQTransport, 5000); 
+        });
+
+        connection.on('close', () => {
+            logger.info('Connection closed, retrying...');
+            setTimeout(initMQTransport, 5000); 
+        });
+    });
+}
+
+export default initMQTransport;
