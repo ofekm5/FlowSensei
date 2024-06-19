@@ -1,5 +1,5 @@
-import logger from './components/logger';
-import apiClient from './components/APIClient';
+import logger from './logger';
+import apiClient from './APIClient';
 
 
 async function test() {
