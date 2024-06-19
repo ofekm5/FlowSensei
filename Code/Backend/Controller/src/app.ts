@@ -19,6 +19,7 @@ require('dotenv').config();
 
 
 interface MarkParams{
+    type: string;
     chain: string,
     connectionMark?: string,
     passthrough?: string,
@@ -58,6 +59,7 @@ interface CreateAddressListParams extends MarkParams{
 }
 
 interface AddNodeToQueueTreeParams{
+    type: string;
     name: string;
     parent?: string;
     packetMark?: string;
@@ -71,6 +73,7 @@ interface AddNodeToQueueTreeParams{
 }
 
 interface UpdateNodePriorityParams{
+    type: string;
     name: string;
     newPriority: string;
 }
@@ -187,6 +190,7 @@ async function sendConnectionMarksAndPacketMarks() {
         const dstPortsString = dstPorts.join(',');
         connectionMarkNames.add(serviceName);
         const connectionMarkParams: ConnectionMarkParams = {
+            type: 'connection-mark',
             chain: 'prerouting',
             connectionMark: serviceName,
             protocol: protocol,
@@ -201,6 +205,7 @@ async function sendConnectionMarksAndPacketMarks() {
 
     for(let connectionMark of connectionMarkNames){
         const packetMarkParams: PacketMarkParams = {
+            type: 'packet-mark',
             chain: 'prerouting',
             connectionMark: connectionMark,
             packetMark: connectionMark + 'packet',
@@ -224,6 +229,7 @@ app.post('/service', authenticateToken, async (req: any, res: any) => {
         }
 
         const upperTreeMsgParams: AddNodeToQueueTreeParams = {
+            type: 'queue-tree',
             name: 'root',
             parent: 'global',
             maxLimit: '100M',
@@ -240,6 +246,7 @@ app.post('/service', authenticateToken, async (req: any, res: any) => {
         for(let priority of priorities){
             const packetMark = priority + '-packet';
             const addNodeToQueueTreeParams: AddNodeToQueueTreeParams = {
+                type: 'queue-tree',
                 name: 'root',
                 packetMark: packetMark,
                 priority: (priorities.indexOf(priority) + 1).toString(),
@@ -277,6 +284,7 @@ app.put('/service', authenticateToken, async (req: any, res: any) => {
             const priority = element.priority;
             await dbClient.updatePriority(routerId, serviceName, priority);
             const updateNodePriority: UpdateNodePriorityParams = {
+                type: 'update-node-priority',
                 name: serviceName,
                 newPriority: priority
             }
@@ -373,7 +381,7 @@ app.post('/signUp', async (req, res) => {
 });
 
 app.post('/logout', async (req, res) => {
-    await publisher.publish('logout');
+    await sendMessageAndWaitForResponse(JSON.stringify({type: 'logout'}));
 });
 
 app.post('/blockService', authenticateToken, async (req: any, res: any) => {
