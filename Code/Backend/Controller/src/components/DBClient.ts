@@ -1,11 +1,7 @@
-import { log } from "winston";
 import logger from "../logger";
-
 import { Client } from 'pg';
 
 class DBClient {
-    
-    
     private client: any;
 
     constructor() {
@@ -129,51 +125,6 @@ class DBClient {
             logger.error(`An error has occurred: ${error}`);
         }
     }
-
-
-
-
-    // public async updatePriorities(routerId: number, priorities: string[]) {
-    //     const formattedPriorities = priorities.map(priority => `'${priority}'`).join(',');
-    //     const updateQuery = 'UPDATE router_to_priorities SET priorities = ARRAY[$2]::text[] WHERE router_id = $1';
-    //     logger.info('updating priorities');
-    //     logger.info('routerId: ' + routerId);
-    //     logger.info('priorities: ' + priorities);
-    //     try {     
-    //         await this.client.query(updateQuery, [routerId, priorities]);
-            
-    //     } 
-    //     catch (error) {
-    //         logger.error(`An error has occurred: ${error}`);
-    //     }
-    // }
-
-    // public async selectPriorities(routerId: number) {
-    //     const selectQuery = `SELECT priorities FROM router_to_priorities WHERE router_id = ${routerId}`;
-    //     logger.info('selecting priorities')
-    //     try {
-    //         const result = await this.client.query(selectQuery);
-    //         logger.info('result: ' + result.rows[0]);
-    //         if(result === undefined){
-    //             return [];
-    //         }
-
-    //         return result.rows[0].priorities;
-    //     }
-    //     catch (error) {
-    //         logger.error(`An error has occurred: ${error}`);
-    //     }
-    // }
-    
-    // public async insertNewRouterId(routerId: number){
-    //     const insertQuery = `INSERT INTO router_to_priorities(router_id, priorities) VALUES (${routerId},${[]})`;
-    //     try {
-    //         await this.client.query(insertQuery);
-    //     } 
-    //     catch (error) {
-    //         logger.error(`An error has occurred: ${error}`);
-    //     }
-    // }
 }
 
 const dbClient = new DBClient();
