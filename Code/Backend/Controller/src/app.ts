@@ -79,6 +79,10 @@ app.get('/login', async (req, res) => {
             return;
         }
 
+        if(!dbClient.isUserExists(username)){
+            dbClient.insertNewUser(username);
+        }
+
         const routerId = dbClient.getRouterId(username);
 
         logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);
@@ -99,6 +103,7 @@ app.get('/login', async (req, res) => {
             res.status(200).json({response: responseToUser});
         }
         else{
+            dbClient.deleteUser(username);
             res.status(400).json({response: "failed to login"});
         }
     } 

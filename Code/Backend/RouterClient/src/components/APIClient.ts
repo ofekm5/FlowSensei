@@ -73,7 +73,7 @@ class APIClient {
     }
 
     public async markConnection(i_RouterID:string, params: ConnectionMarkParams): Promise<void> {
-        if (!this.apiSessions) {
+        if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
         const {
