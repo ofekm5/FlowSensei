@@ -1,13 +1,5 @@
-CREATE TABLE IF NOT EXISTS "User" (
-    "userID" SERIAL PRIMARY KEY,
-    "userName" VARCHAR(50) NOT NULL,
-    "userPass" VARCHAR(255) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS "Appointment" (
-    "appointmentID" SERIAL PRIMARY KEY,
-    "userID" INTEGER NOT NULL,
-    "date" TIMESTAMP NOT NULL,
-    "testType" VARCHAR(50) NOT NULL,
-    FOREIGN KEY ("userID") REFERENCES "User"("userID")
+CREATE TABLE IF NOT EXISTS "router_to_priorities" (
+    "router_id" SERIAL PRIMARY KEY,
+    "service_name" VARCHAR(50) NOT NULL,
+    "priority" INTEGER NOT NULL
 );

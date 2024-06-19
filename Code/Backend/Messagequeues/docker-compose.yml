@@ -8,11 +8,3 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: myuser
       RABBITMQ_DEFAULT_PASS: mypass
-  rabbitmq2:
-    image: rabbitmq:3-management
-    ports:
-      - "5673:5673"
-      - "15673:15673"
-    environment:
-      RABBITMQ_DEFAULT_USER: myuser
-      RABBITMQ_DEFAULT_PASS: mypass

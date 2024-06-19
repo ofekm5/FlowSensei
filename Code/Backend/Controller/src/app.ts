@@ -79,12 +79,13 @@ app.get('/login', async (req, res) => {
             return;
         }
 
-        logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}`);
-        const response = await login(username.toString(), password.toString(), publicIp.toString());
+        const routerId = dbClient.getRouterId(username);
+
+        logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);
+        const response = await login(username.toString(), password.toString(), publicIp.toString(), routerId.toString());
         
         logger.info('message: ' + response);
         if(response === 'success'){
-            const routerId = dbClient.getRouterId(username);
             const payload = {routerId: routerId};
             const secret = process.env.ACCESS_TOKEN_SECRET;
             if (!secret) {
