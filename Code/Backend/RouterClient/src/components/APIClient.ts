@@ -1,7 +1,7 @@
 import logger from "./logger";
 import { RouterOSAPI } from 'node-routeros';
 
-interface MarkParams{
+interface MarkParams {
     chain: string;
     connectionMark?: string;
     passthrough?: string;
@@ -13,26 +13,17 @@ interface MarkParams{
     dstAddress?: string;
 }
 
-interface ConnectionMarkParams extends MarkParams{
+interface ConnectionMarkParams extends MarkParams {
     ports?: string;
-    srcAddress?: string;
     inBridgePort?: string;
     outBridgePort?: string;
 }
 
-interface PacketMarkParams extends MarkParams{
-    srcAddress?: string;
+interface PacketMarkParams extends MarkParams {
     packetMark?: string;
-    dstAddress?: string;
     dstPort?: string;
     inBridgePort?: string;
     outBridgePort?: string;
-}
-
-interface PacketDropParams extends MarkParams{
-    packetMark?: string;
-    dstAddress?: string;
-    dstPort?: string;
 }
 
 interface AddNodeToQueueTreeParams {
@@ -72,7 +63,7 @@ class APIClient {
         }
     }
 
-    public async markConnection(i_RouterID:string, params: ConnectionMarkParams): Promise<void> {
+    public async markConnection(i_RouterID: string, params: ConnectionMarkParams): Promise<void> {
         if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
@@ -114,9 +105,9 @@ class APIClient {
                 logger.error(`Failed to add mangle connection rule for ${connectionMark}: ${error}`);
                 throw new Error(`Failed to add mangle connection rule for ${connectionMark}`);
             });
-    }    
+    }
     
-    public async markPacket(i_RouterID:string, params: PacketMarkParams) {
+    public async markPacket(i_RouterID: string, params: PacketMarkParams): Promise<void> {
         if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
@@ -159,47 +150,7 @@ class APIClient {
             .catch((error) => {
                 logger.error(`Failed to add mangle packet rule for ${packetMark}: ${error}`);
                 throw new Error(`Failed to add mangle packet rule for ${packetMark}`);
-            }
-        );
-    }
-    
-    public async dropPacket(i_RouterID:string, params: PacketDropParams) {
-        if (!this.apiSessions[i_RouterID]) {
-            throw new Error('API session not initialized');
-        }
-        const {
-            chain,
-            srcAddress,
-            dstAddress,
-            srcPort,
-            dstPort,
-            protocol,
-            inInterface,
-            outInterface,
-            connectionMark
-        } = params;
-    
-        const command = [
-            '=action=drop',
-            `=chain=${chain}`
-        ];
-    
-        if (srcAddress) command.push(`=src-address=${srcAddress}`);
-        if (dstAddress) command.push(`=dst-address=${dstAddress}`);
-        if (srcPort) command.push(`=src-port=${srcPort}`);
-        if (dstPort) command.push(`=dst-port=${dstPort}`);
-        if (protocol) command.push(`=protocol=${protocol}`);
-        if (inInterface) command.push(`=in-interface=${inInterface}`);
-        if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (connectionMark) command.push(`=connection-mark=${connectionMark}`);
-    
-        return this.apiSessions[i_RouterID].write('/ip/firewall/filter/add', command)
-            .then(() => logger.info(`Drop packet rule added successfully`))
-            .catch((error) => {
-                logger.error(`Failed to add drop packet rule: ${error}`);
-                throw new Error(`Failed to add drop packet rule`);
-            }
-        );
+            });
     }
 
     public async addNodeToQueueTree(i_RouterID:string, params: AddNodeToQueueTreeParams) {
