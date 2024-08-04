@@ -125,10 +125,6 @@ app.post('/logout', async (req, res) => {
 
 });
 
-app.post('/block-Service', authenticateToken, async (req: any, res: any) => {
-
-});
-
 async function authenticateToken(req: any, res: any, next: any){
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];

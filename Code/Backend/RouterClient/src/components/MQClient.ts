@@ -1,5 +1,5 @@
 import amqp, { Channel, Connection, Message } from 'amqplib/callback_api';
-import logger from './logger';
+import logger from '../logger';
 import apiClient from './APIClient'; 
 
 const exchange = 'requests_exchange';

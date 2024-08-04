@@ -1,29 +1,13 @@
-import logger from "./logger";
+import logger from "../logger";
 import { RouterOSAPI } from 'node-routeros';
 
-interface MarkParams {
-    chain: string;
-    connectionMark?: string;
-    passthrough?: string;
-    protocol?: string;
-    inInterface?: string;
-    outInterface?: string;
-    srcAddress?: string;
+interface markServiceParams {
+    service: string;
+    protocol: string;
+    dstPort: string;
     srcPort?: string;
+    srcAddress?: string;
     dstAddress?: string;
-}
-
-interface ConnectionMarkParams extends MarkParams {
-    ports?: string;
-    inBridgePort?: string;
-    outBridgePort?: string;
-}
-
-interface PacketMarkParams extends MarkParams {
-    packetMark?: string;
-    dstPort?: string;
-    inBridgePort?: string;
-    outBridgePort?: string;
 }
 
 interface AddNodeToQueueTreeParams {
@@ -63,41 +47,28 @@ class APIClient {
         }
     }
 
-    public async markConnection(i_RouterID: string, params: ConnectionMarkParams): Promise<void> {
+    //Each connection mark is uniquely associated with a single packet mark
+    public async markService(i_RouterID: string, params: markServiceParams): Promise<void> {
+        this.markConnection(i_RouterID, params.service+"_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress).then().catch((error) => {  logger.error(`Failed to mark connection for ${params.service}: ${error}`); });
+    }
+
+    private async markConnection(i_RouterID: string, connectionMark: string, protocol: string, srcPort: string | undefined, dstPort: string | undefined, srcAddress: string | undefined, dstAddress: string | undefined): Promise<void> {
         if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
-        const {
-            chain,
-            connectionMark,
-            passthrough = 'yes',
-            ports,
-            protocol,
-            srcAddress,
-            dstAddress,
-            srcPort,
-            inInterface,
-            outInterface,
-            inBridgePort,
-            outBridgePort,
-        } = params;
-    
+
         const command = [
             '=action=mark-connection',
-            `=chain=${chain}`,
+            `=chain=prerouting`,
             `=new-connection-mark=${connectionMark}`,
-            `=passthrough=${passthrough}`,
+            `=passthrough=yes`,
         ];
     
-        if (ports) command.push(`=dst-port=${ports}`);
+        if (dstPort) command.push(`=dst-port=${dstPort}`);
         if (protocol) command.push(`=protocol=${protocol}`);
         if (srcAddress) command.push(`=src-address=${srcAddress}`);
         if (dstAddress) command.push(`=dst-address=${dstAddress}`);
         if (srcPort) command.push(`=src-port=${srcPort}`);
-        if (inInterface) command.push(`=in-interface=${inInterface}`);
-        if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
-        if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
     
         return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
             .then(() => logger.info(`Mangle connection rule for ${connectionMark} added successfully`))
@@ -107,32 +78,16 @@ class APIClient {
             });
     }
     
-    public async markPacket(i_RouterID: string, params: PacketMarkParams): Promise<void> {
+    private async markPacket(i_RouterID: string): Promise<void> {
         if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
-        const {
-            chain,
-            connectionMark,
-            packetMark,
-            passthrough = 'no',
-            srcAddress,
-            dstAddress,
-            srcPort,
-            dstPort,
-            protocol,
-            inInterface,
-            outInterface,
-            inBridgePort,
-            outBridgePort,
-        } = params;
-    
+        
         const command = [
             '=action=mark-packet',
             `=chain=${chain}`,
             `=connection-mark=${connectionMark}`,
             `=new-packet-mark=${packetMark}`,
-            `=passthrough=${passthrough}`,
         ];
     
         if (srcAddress) command.push(`=src-address=${srcAddress}`);
@@ -140,10 +95,6 @@ class APIClient {
         if (srcPort) command.push(`=src-port=${srcPort}`);
         if (dstPort) command.push(`=dst-port=${dstPort}`);
         if (protocol) command.push(`=protocol=${protocol}`);
-        if (inInterface) command.push(`=in-interface=${inInterface}`);
-        if (outInterface) command.push(`=out-interface=${outInterface}`);
-        if (inBridgePort) command.push(`=in-bridge-port=${inBridgePort}`);
-        if (outBridgePort) command.push(`=out-bridge-port=${outBridgePort}`);
     
         return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
             .then(() => logger.info(`Mangle packet rule for ${packetMark} added successfully`))

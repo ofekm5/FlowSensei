@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
-import logger from './components/logger';
+import logger from './logger';
 import initMQTransport from './components/MQClient';
 
 dotenv.config();
