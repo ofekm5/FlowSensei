@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@dnd-kit/sortable": "^8.0.0",
     "amqplib": "^0.10.4",
     "express": "^4.19.2",
     "node-cron": "^3.0.3",
