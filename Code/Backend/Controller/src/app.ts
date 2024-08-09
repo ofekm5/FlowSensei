@@ -79,12 +79,17 @@ app.get('/login', async (req, res) => {
             return;
         }
 
-        logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}`);
-        const response = await login(username.toString(), password.toString(), publicIp.toString());
+        if(!dbClient.isUserExists(username)){
+            dbClient.insertNewUser(username);
+        }
+
+        const routerId = dbClient.getRouterId(username);
+
+        logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);
+        const response = await login(username.toString(), password.toString(), publicIp.toString(), routerId.toString());
         
         logger.info('message: ' + response);
         if(response === 'success'){
-            const routerId = dbClient.getRouterId(username);
             const payload = {routerId: routerId};
             const secret = process.env.ACCESS_TOKEN_SECRET;
             if (!secret) {
@@ -98,6 +103,7 @@ app.get('/login', async (req, res) => {
             res.status(200).json({response: responseToUser});
         }
         else{
+            dbClient.deleteUser(username);
             res.status(400).json({response: "failed to login"});
         }
     } 
@@ -116,10 +122,6 @@ app.post('/logout', async (req, res) => {
         logger.error('An error has occurred: ' + error);
         res.status(500).json({error: 'An error has occurred ' + error});
     }
-
-});
-
-app.post('/block-Service', authenticateToken, async (req: any, res: any) => {
 
 });
 

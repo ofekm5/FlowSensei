@@ -83,12 +83,13 @@ export async function updateNodesPriority(serviceName: string, newPriority: stri
     return response;
 }
 
-export async function login(username: string, password: string, publicIp: string){
+export async function login(username: string, password: string, publicIp: string, routerID:string){
     const msgToSend = {
         type: 'login',
         username: username,
         password: password,
-        publicIp: publicIp
+        publicIp: publicIp,
+        routerID: routerID
     }
 
     const response = await sendMessageToQueue(JSON.stringify(msgToSend));
