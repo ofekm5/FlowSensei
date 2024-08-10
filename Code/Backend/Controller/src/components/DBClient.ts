@@ -1,26 +1,6 @@
 import logger from "../logger";
 import { Client } from 'pg';
 
-// -- Enable the uuid-ossp extension to use the uuid_generate_v4() function
-// CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-// -- Create the router_to_priorities table with UUID primary key
-// CREATE TABLE IF NOT EXISTS "router_to_priorities" (
-//     "router_id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-//     "service_name" VARCHAR(50) NOT NULL,
-//     "priority" INTEGER NOT NULL
-// );
-
-// -- Create the router_to_user table with router_id as a foreign key
-// CREATE TABLE IF NOT EXISTS "router_to_user" (
-//     "router_id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-//     "user_name" VARCHAR(50) NOT NULL,
-//     CONSTRAINT fk_router
-//       FOREIGN KEY ("router_id")
-//       REFERENCES "router_to_priorities" ("router_id")
-// );
-
-
 class DBClient {
     private client: Client;
 
@@ -35,88 +15,177 @@ class DBClient {
     }
 
     public async connectToDB() {
-        try {
-            await this.client.connect();
-            logger.info('Connected to database');
-        }
-         catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+        return new Promise<void>((resolve, reject) => {
+            this.client.connect((error) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                logger.info('Connected to database');
+                resolve();
+            });
+        });
     }
 
     public async disconnectFromDB() {
-        try {
-            await this.client.end();
-            logger.info('Disconnected from database');
-        } 
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+        return new Promise<void>((resolve, reject) => {
+            this.client.end((error) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                logger.info('Disconnected from database');
+                resolve();
+            });
+        });
     }
 
-    public async insertNewUser(userName: string | string[]){
-        const insertQuery = `INSERT INTO router_to_user(user_name) VALUES ($1)`;
-        try {
-            await this.client.query(insertQuery, [userName]);
-        }
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+    public async createTables() {
+        const uuidExtensionQuery = `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`;
+        
+        const routerTableQuery = `CREATE TABLE IF NOT EXISTS routers (
+            router_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            public_ip VARCHAR(50) NOT NULL
+            )`;
+
+        const servicesTableQuery = `CREATE TABLE IF NOT EXISTS services (
+        service_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        service_name VARCHAR(50) NOT NULL
+        )`;
+
+        const serviceToPriorityTableQuery = `CREATE TABLE IF NOT EXISTS service_to_priority (
+            router_id UUID,
+            service_id UUID,
+            priority INTEGER NOT NULL,
+            PRIMARY KEY(router_id, service_id),
+            FOREIGN KEY (router_id) REFERENCES routers(router_id),
+            FOREIGN KEY (service_id) REFERENCES services(service_id)
+            )`;
+
+        return new Promise<void>((resolve, reject) => {
+            this.client.query(uuidExtensionQuery, (error) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                this.client.query(routerTableQuery, (error) => {
+                    if (error) {
+                        logger.error(`An error has occurred: ${error}`);
+                        reject(error);
+                    }
+                    this.client.query(servicesTableQuery, (error) => {
+                        if (error) {
+                            logger.error(`An error has occurred: ${error}`);
+                            reject(error);
+                        }
+                        this.client.query(serviceToPriorityTableQuery, (error) => {
+                            if (error) {
+                                logger.error(`An error has occurred: ${error}`);
+                                reject(error);
+                            }
+                            resolve();
+                        });
+                    });
+                });
+            });
+        }); 
     }
 
-    public async getRouterId(userName: string | string[]){
-        const selectQuery = `SELECT router_id FROM router_to_user WHERE user_name = $1`;
-        try {
-            const result = await this.client.query(selectQuery, [userName]);
-            return result.rows[0]?.router_id;
-        }
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+
+    public async insertNewUser(publicIp: string){
+        return new Promise((resolve, reject) => {
+            const insertQuery = `INSERT INTO routers(public_ip) VALUES ($1)`;
+            this.client.query(insertQuery, [publicIp], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+
     }
 
-    public async isUserExists(userName: string | string[]) {
-        const selectQuery = `SELECT 1 FROM router_to_user WHERE user_name = $1`;
-        try {
-            const result = await this.client.query(selectQuery, [userName]);
-            return result.rows.length > 0;
-        } 
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+    public async isUserExists(publicIp: string) {
+        const selectQuery = `SELECT 1 FROM routers WHERE public_ip = $1`;
+        return new Promise((resolve, reject) => {
+            this.client.query(selectQuery, [publicIp], (err, result) => {
+                if (err) {
+                    logger.error(`An error has occurred: ${err}`);
+                    reject(err);
+                } else {
+                    resolve(result.rows.length > 0);
+                }
+            });
+        });
     }
 
     public async deleteUser(userName: string | string[]) {
-        const deleteQuery = `DELETE FROM router_to_user WHERE user_name = $1`;
-        try {
-            await this.client.query(deleteQuery, [userName]);
-            logger.info(`User ${userName} deleted successfully`);
-        }
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+        return new Promise((resolve, reject) => {
+            const deleteQuery = `DELETE FROM routers WHERE public_ip = $1`;
+            this.client.query(deleteQuery, [userName], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+        
     }
 
     public async updatePriority(routerId: string, serviceName: string, priority: number) {
-        const updateQuery = `UPDATE router_to_priorities SET priority = $1 WHERE router_id = $2 AND service_name = $3`;
-        try {
-            await this.client.query(updateQuery, [priority, routerId, serviceName]);
-        }
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+        return new Promise((resolve, reject) => {
+            const updateQuery = `UPDATE service_to_priority SET priority = $1 WHERE router_id = $2 AND service_id = $3`;
+            this.client.query(updateQuery, [priority, routerId, serviceName], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
     }
 
     public async insertNewPriorities(routerId: string, services: {serviceName: string, priority: number}[]) {
-        try {
+        return new Promise((resolve, reject) => {
             for (let service of services) {
-                const insertQuery = `INSERT INTO router_to_priorities(router_id, service_name, priority) VALUES ($1, $2, $3)`;
-                await this.client.query(insertQuery, [routerId, service.serviceName, service.priority]);
+                const insertQuery = `INSERT INTO service_to_priority(router_id, service_id, priority) VALUES ($1, $2, $3)`;
+                this.client.query(insertQuery, [routerId, service.serviceName, service.priority], (error, result) => {
+                    if (error) {
+                        logger.error(`An error has occurred: ${error}`);
+                        reject(error);
+                    }
+                    resolve(result);
+                });
             }
-        }
-        catch (error) {
-            logger.error(`An error has occurred: ${error}`);
-        }
+        });
+    }
+
+    public async getServiceIdByName(serviceId: string) {
+        return new Promise((resolve, reject) => {
+            const selectQuery = `SELECT service_id FROM services WHERE service_name = $1`;
+            this.client.query(selectQuery, [serviceId], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result.rows[0]?.service_id);
+            });
+        });
+    }
+
+    public async getRouterByPublicIp(public_ip: string) {
+        return new Promise((resolve, reject) => {
+            const selectQuery = `SELECT router_id FROM routers WHERE public_ip = $1`;
+            this.client.query(selectQuery, [public_ip], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result.rows[0].router_id);
+            });
+        });
     }
 }
 

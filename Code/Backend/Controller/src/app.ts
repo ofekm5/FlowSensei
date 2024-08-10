@@ -45,10 +45,9 @@ app.put('/service', authenticateToken, async (req: any, res: any) => {
             return;
         }
 
-        const user = req.user;
-        const routerId = user.routerId;
+        const routerId = msg.routerId;
         const priorities = msg.priorities;
-        logger.info(`routerId: ${routerId}, priorities: ${priorities}, user: ${user}`);
+        logger.info(`routerId: ${routerId}, priorities: ${priorities}`);
         for(let element of priorities){
             const serviceName = element.serviceName;
             const priority = element.priority;
@@ -68,7 +67,7 @@ app.put('/service', authenticateToken, async (req: any, res: any) => {
 
 app.get('/login', async (req, res) => {
    try {
-        const msg = req.headers;
+        const msg = req.body;
         const username = msg['username'];
         const password = msg['password'];
         const publicIp = msg['publicIp'];
@@ -79,11 +78,11 @@ app.get('/login', async (req, res) => {
             return;
         }
 
-        if(!dbClient.isUserExists(username)){
-            dbClient.insertNewUser(username);
+        if(!await dbClient.isUserExists(publicIp)){
+            await dbClient.insertNewUser(publicIp);
         }
 
-        const routerId = dbClient.getRouterId(username);
+        const routerId:string = await dbClient.getRouterByPublicIp(publicIp) as string;
 
         logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);
         const response = await login(username.toString(), password.toString(), publicIp.toString(), routerId.toString());
@@ -103,7 +102,7 @@ app.get('/login', async (req, res) => {
             res.status(200).json({response: responseToUser});
         }
         else{
-            dbClient.deleteUser(username);
+            await dbClient.deleteUser(publicIp);
             res.status(400).json({response: "failed to login"});
         }
     } 
@@ -153,8 +152,21 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
-app.listen(5000, () => {
-    logger.info('Server is running on port 5000');
-    initRabbitMQ();
-    markConnectionsAndPackets();
-});
+
+async function startServer(){
+    try{
+        await dbClient.connectToDB();
+        await dbClient.createTables();
+        logger.info('Connected to database and created tables');
+        app.listen(5000, () => {
+            logger.info('Server is running on port 5000');
+            initRabbitMQ();
+            markConnectionsAndPackets();
+        });
+    }
+    catch(error){
+        logger.error('An error has occurred: ' + error);
+    }
+}
+
+startServer();
