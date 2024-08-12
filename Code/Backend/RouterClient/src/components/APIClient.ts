@@ -48,11 +48,20 @@ class APIClient {
     }
 
     //Each connection mark is uniquely associated with a single packet mark
-    public async markService(i_RouterID: string, params: markServiceParams): Promise<void> {
-        this.markConnection(i_RouterID, params.service+"_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress).then().catch((error) => {  logger.error(`Failed to mark connection for ${params.service}: ${error}`); });
+    public markService(i_RouterID: string, params: markServiceParams): void {
+        this.markConnection(i_RouterID, params.service + "_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress)
+            .then(() => {
+                return this.markPacket(i_RouterID, params.service + "_packet", params.service + "_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress);
+            })
+            .then(() => {
+                logger.info(`Successfully marked connection and packet for service: ${params.service}`);
+            })
+            .catch((error) => {
+                logger.error(`Failed to mark service for ${params.service}: ${error}`);
+            });
     }
 
-    private async markConnection(i_RouterID: string, connectionMark: string, protocol: string, srcPort: string | undefined, dstPort: string | undefined, srcAddress: string | undefined, dstAddress: string | undefined): Promise<void> {
+    private async markConnection(i_RouterID: string, connectionMark: string, protocol: string, srcPort: string | undefined, dstPort: string, srcAddress: string | undefined, dstAddress: string | undefined): Promise<void> {
         if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
@@ -64,7 +73,7 @@ class APIClient {
             `=passthrough=yes`,
         ];
     
-        if (dstPort) command.push(`=dst-port=${dstPort}`);
+        command.push(`=dst-port=${dstPort}`);
         if (protocol) command.push(`=protocol=${protocol}`);
         if (srcAddress) command.push(`=src-address=${srcAddress}`);
         if (dstAddress) command.push(`=dst-address=${dstAddress}`);
@@ -78,22 +87,22 @@ class APIClient {
             });
     }
     
-    private async markPacket(i_RouterID: string): Promise<void> {
+    private async markPacket(i_RouterID: string, packetMark: string, connectionMark: string, protocol: string, srcPort: string | undefined, dstPort: string, srcAddress: string | undefined, dstAddress: string | undefined): Promise<void> {
         if (!this.apiSessions[i_RouterID]) {
             throw new Error('API session not initialized');
         }
         
         const command = [
             '=action=mark-packet',
-            `=chain=${chain}`,
+            `=chain=prerouting`,
             `=connection-mark=${connectionMark}`,
             `=new-packet-mark=${packetMark}`,
         ];
     
+        command.push(`=dst-port=${dstPort}`);
         if (srcAddress) command.push(`=src-address=${srcAddress}`);
         if (dstAddress) command.push(`=dst-address=${dstAddress}`);
         if (srcPort) command.push(`=src-port=${srcPort}`);
-        if (dstPort) command.push(`=dst-port=${dstPort}`);
         if (protocol) command.push(`=protocol=${protocol}`);
     
         return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
@@ -161,6 +170,49 @@ class APIClient {
             }
         );
     }
+
+
+    public async adjustLimit(queueName: string, maxBandwidth: number, threshold: number, incrementStep: number, minLimitAt: number, maxLimitAt: number) {
+        for (const [routerID, apiSession] of Object.entries(this.apiSessions)) {
+            try {
+                const [interfaceStats] = await apiSession.write('/interface/monitor-traffic', [
+                    '=interface=ether1', // Replace 'ether1' with your interface name
+                    '=once=',
+                ]);
+    
+                const inUsage = parseInt(interfaceStats['rx-bits-per-second'], 10) / 1000; // Convert to kbps
+                const outUsage = parseInt(interfaceStats['tx-bits-per-second'], 10) / 1000; // Convert to kbps
+                const totalUsage = inUsage + outUsage;
+    
+                const [queue] = await apiSession.write('/queue/tree/print', [
+                    `?name=${queueName}`,
+                ]);
+                const currentLimitAt = parseInt(queue['limit-at'], 10);
+    
+                let newLimitAt = currentLimitAt;
+    
+                if (totalUsage > (maxBandwidth * threshold / 100)) {
+                    newLimitAt = Math.min(currentLimitAt + incrementStep, maxLimitAt);
+                    logger.info(`Router ${routerID}: Bandwidth exceeded ${threshold}%, increasing limit-at to ${newLimitAt} kbps`);
+                } 
+                else {
+                    newLimitAt = Math.max(currentLimitAt - incrementStep, minLimitAt);
+                    logger.info(`Router ${routerID}: Bandwidth below ${threshold}%, decreasing limit-at to ${newLimitAt} kbps`);
+                }
+    
+                await apiSession.write('/queue/tree/set', [
+                    `=name=${queueName}`,
+                    `=limit-at=${newLimitAt}`,
+                ]);
+                logger.info(`Router ${routerID}: Set limit-at for ${queueName} to ${newLimitAt} kbps`);
+    
+            } 
+            catch (error) {
+                logger.error(`Router ${routerID}: Failed to adjust limit-at ${error}`);
+            }
+        }
+    }
+    
 
     public async disconnect(i_RouterID:string): Promise<void> {
         if (this.apiSessions[i_RouterID]) {
