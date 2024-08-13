@@ -119,7 +119,6 @@ class APIClient {
         }
         const {
             name,
-            parent,
             packetMark,
             priority,
             maxLimit,
@@ -132,7 +131,7 @@ class APIClient {
     
         const command = [
             `=name=${name}`,
-            `=parent=${parent}`,
+            `=parent=global`,
             `=packet-mark=${packetMark}`,
             `=priority=${priority}`,
             `=max-limit=${maxLimit}`,
@@ -171,10 +170,11 @@ class APIClient {
         );
     }
 
-
     public async adjustLimit(queueName: string, maxBandwidth: number, threshold: number, incrementStep: number, minLimitAt: number, maxLimitAt: number) {
         for (const [routerID, apiSession] of Object.entries(this.apiSessions)) {
             try {
+                //TODO: add burst
+
                 const [interfaceStats] = await apiSession.write('/interface/monitor-traffic', [
                     '=interface=ether1', // Replace 'ether1' with your interface name
                     '=once=',
@@ -212,7 +212,6 @@ class APIClient {
             }
         }
     }
-    
 
     public async disconnect(i_RouterID:string): Promise<void> {
         if (this.apiSessions[i_RouterID]) {

@@ -17,9 +17,15 @@ function processMessage(message: string): string {
                 case "login":
                     const { Host, Username, Password, RouterID } = parsedMessage;
                     if (Host && Username && Password && RouterID) {
-                        // TODO: use apiClient for API call
-                        responseMessage.Status = 'ok';
-                    } else {
+                        apiClient.login(Host, Username, Password, RouterID)
+                            .then(() => {
+                                responseMessage.Status = 'ok';
+                            })
+                            .catch((error) => {
+                                logger.error(`Failed to login: ${error}`);
+                            });
+                    } 
+                    else {
                         logger.error('Message missing required fields');
                     }
                     break;
@@ -39,8 +45,13 @@ function processMessage(message: string): string {
                         srcPort
                     } = parsedMessage;
                     if (chain && passthrough && protocol) {
-                        // TODO: use apiClient for API call
-                        responseMessage.Status = 'ok';
+                        apiClient.markConnection(connectionMark, protocol, srcPort, dstPort, srcAddress, dstAddress)
+                            .then(() => {
+                                responseMessage.Status = 'ok';
+                            })
+                            .catch((error) => {
+                                logger.error(`Failed to mark connection: ${error}`);
+                            });
                     } else {
                         logger.error('Message missing required fields');
                     }
