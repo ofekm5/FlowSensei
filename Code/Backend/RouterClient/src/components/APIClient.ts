@@ -15,12 +15,6 @@ interface AddNodeToQueueTreeParams {
     parent: string;
     packetMark: string;
     priority: string;
-    maxLimit: string;
-    limitAt: string;
-    burstLimit: string;
-    burstThreshold: string;
-    burstTime: string;
-    queueType: string;
 }
 
 class APIClient {
@@ -121,12 +115,6 @@ class APIClient {
             name,
             packetMark,
             priority,
-            maxLimit,
-            limitAt,
-            burstLimit,
-            burstThreshold,
-            burstTime,
-            queueType,
         } = params;
     
         const command = [
@@ -134,12 +122,7 @@ class APIClient {
             `=parent=global`,
             `=packet-mark=${packetMark}`,
             `=priority=${priority}`,
-            `=max-limit=${maxLimit}`,
-            `=limit-at=${limitAt}`,
-            `=burst-limit=${burstLimit}`,
-            `=burst-threshold=${burstThreshold}`,
-            `=burst-time=${burstTime}`,
-            `=queue=${queueType}`,
+            `=queue=default`,
         ];
     
         return this.apiSessions[i_RouterID].write('/queue/tree/add', command)
@@ -170,45 +153,70 @@ class APIClient {
         );
     }
 
-    public async adjustLimit(queueName: string, maxBandwidth: number, threshold: number, incrementStep: number, minLimitAt: number, maxLimitAt: number) {
-        for (const [routerID, apiSession] of Object.entries(this.apiSessions)) {
-            try {
-                //TODO: add burst
-
-                const [interfaceStats] = await apiSession.write('/interface/monitor-traffic', [
-                    '=interface=ether1', // Replace 'ether1' with your interface name
-                    '=once=',
-                ]);
+    private async calculateTotalUsage(apiSession: RouterOSAPI): number {
+        const interfaces = await apiSession.write('/interface/print', []);
+        let totalInUsage = 0;
+        let totalOutUsage = 0;
+        for (const iface of interfaces) {
+                    const [interfaceStats] = await apiSession.write('/interface/monitor-traffic', [
+                        `=interface=${iface.name}`,
+                        '=once=',
+                    ]);
     
-                const inUsage = parseInt(interfaceStats['rx-bits-per-second'], 10) / 1000; // Convert to kbps
-                const outUsage = parseInt(interfaceStats['tx-bits-per-second'], 10) / 1000; // Convert to kbps
-                const totalUsage = inUsage + outUsage;
+                    const inUsage = parseInt(interfaceStats['rx-bits-per-second'], 10) / 1000; // Convert to kbps
+                    const outUsage = parseInt(interfaceStats['tx-bits-per-second'], 10) / 1000; // Convert to kbps
     
-                const [queue] = await apiSession.write('/queue/tree/print', [
-                    `?name=${queueName}`,
-                ]);
-                const currentLimitAt = parseInt(queue['limit-at'], 10);
-    
-                let newLimitAt = currentLimitAt;
-    
-                if (totalUsage > (maxBandwidth * threshold / 100)) {
-                    newLimitAt = Math.min(currentLimitAt + incrementStep, maxLimitAt);
-                    logger.info(`Router ${routerID}: Bandwidth exceeded ${threshold}%, increasing limit-at to ${newLimitAt} kbps`);
-                } 
-                else {
-                    newLimitAt = Math.max(currentLimitAt - incrementStep, minLimitAt);
-                    logger.info(`Router ${routerID}: Bandwidth below ${threshold}%, decreasing limit-at to ${newLimitAt} kbps`);
+                    totalInUsage += inUsage;
+                    totalOutUsage += outUsage;
                 }
     
+                return totalInUsage + totalOutUsage;
+    }
+
+    public async adjustLimit() {
+        const maxBandwidth = 100000; // 100 Mbps in kbps, according to MikroTik standards
+        const threshold = 50;       // 50% threshold for bandwidth usage
+        const incrementStep = 1000; // 1000 kbps increment step
+        const minLimitAt = 10000;   // 10,000 kbps minimum limit-at value
+        const maxLimitAt = 50000;   // 50,000 kbps maximum limit-at value
+    
+        for (const [routerID, apiSession] of Object.entries(this.apiSessions)) {
+            try {
+                const totalUsage = this.calculateTotalUsage(apiSession);
+    
+                const [globalQueue] = await apiSession.write('/queue/tree/print', [
+                    `?name=global`, // Assuming the global queue is named 'global'
+                ]);
+
+                const globalMaxLimit = parseInt(globalQueue['max-limit'], 10);
+                const globalLimitAt = parseInt(globalQueue['limit-at'], 10);
+                const globalAvailableBandwidth = globalMaxLimit - globalLimitAt;
+    
+                let newLimitAt = globalLimitAt;
+    
+                // Check if the global queue has enough bandwidth available
+                if (totalUsage > (maxBandwidth * threshold / 100) && globalAvailableBandwidth > incrementStep) {
+                    newLimitAt = Math.min(globalLimitAt + incrementStep, maxLimitAt);
+                    logger.info(`Router ${routerID}: Bandwidth exceeded ${threshold}%, increasing global limit-at to ${newLimitAt} kbps`);
+                } 
+                else if (totalUsage <= (maxBandwidth * threshold / 100)) {
+                    newLimitAt = Math.max(globalLimitAt - incrementStep, minLimitAt);
+                    logger.info(`Router ${routerID}: Bandwidth below ${threshold}%, decreasing global limit-at to ${newLimitAt} kbps`);
+                } 
+                else {
+                    logger.warn(`Router ${routerID}: Not enough available bandwidth in global queue to increase limit-at`);
+                }
+    
+                // Set the new limit-at value
                 await apiSession.write('/queue/tree/set', [
-                    `=name=${queueName}`,
+                    `=name=global`,
                     `=limit-at=${newLimitAt}`,
                 ]);
-                logger.info(`Router ${routerID}: Set limit-at for ${queueName} to ${newLimitAt} kbps`);
+                logger.info(`Router ${routerID}: Set global limit-at to ${newLimitAt} kbps`);
     
             } 
             catch (error) {
-                logger.error(`Router ${routerID}: Failed to adjust limit-at ${error}`);
+                logger.error(`Router ${routerID}: Failed to adjust global limit-at ${error}`);
             }
         }
     }
