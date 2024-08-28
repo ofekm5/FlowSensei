@@ -3,8 +3,8 @@ import express, { NextFunction } from 'express';
 import dbClient from "./components/DBClient";
 import jwt from 'jsonwebtoken';
 import logger from "./logger";
-import { markConnectionsAndPackets, createNewPriorityQueue, updateNodesPriority, login, logout} from './components/RequestHandler'; 
-import { initRabbitMQ } from './components/MQClient';
+import { markConnectionsAndPackets, createNewPriorityQueue, updateNodesPriority, login, logout} from './components/MQHandle'; 
+import { initRabbitMQ } from './components/MQHandle';
 dotenv.config();
 
 const app = express();

@@ -17,13 +17,19 @@ function processMessage(message: string): string {
                 case "login":
                     const { Host, Username, Password, RouterID } = parsedMessage;
                     if (Host && Username && Password && RouterID) {
-                        // TODO: use apiClient for API call
-                        responseMessage.Status = 'ok';
-                    } else {
+                        apiClient.login(Host, Username, Password, RouterID)
+                            .then(() => {
+                                responseMessage.Status = 'ok';
+                            })
+                            .catch((error) => {
+                                logger.error(`Failed to login: ${error}`);
+                            });
+                    } 
+                    else {
                         logger.error('Message missing required fields');
                     }
                     break;
-                case "markConnection":
+                case "markService":
                     const {
                         chain,
                         connectionMark,
@@ -39,52 +45,13 @@ function processMessage(message: string): string {
                         srcPort
                     } = parsedMessage;
                     if (chain && passthrough && protocol) {
-                        // TODO: use apiClient for API call
-                        responseMessage.Status = 'ok';
-                    } else {
-                        logger.error('Message missing required fields');
-                    }
-                    break;
-                case "markPacket":
-                    const {
-                        chain: mpChain,
-                        connectionMark: mpConnectionMark,
-                        passthrough: mpPassthrough,
-                        protocol: mpProtocol,
-                        inInterface: mpInInterface,
-                        outInterface: mpOutInterface,
-                        inBridgePort: mpInBridgePort,
-                        outBridgePort: mpOutBridgePort,
-                        srcAddress: mpSrcAddress,
-                        packetMark,
-                        dstAddress: mpDstAddress,
-                        srcPort: mpSrcPort,
-                        dstPort: mpDstPort
-                    } = parsedMessage;
-                    if (mpChain) {
-                        // TODO: use apiClient for API call
-                        responseMessage.Status = 'ok';
-                    } else {
-                        logger.error('Message missing required fields');
-                    }
-                    break;
-                case "dropPacket":
-                    const {
-                        chain: dpChain,
-                        connectionMark: dpConnectionMark,
-                        passthrough: dpPassthrough,
-                        protocol: dpProtocol,
-                        inInterface: dpInInterface,
-                        outInterface: dpOutInterface,
-                        srcAddress: dpSrcAddress,
-                        srcPort: dpSrcPort,
-                        dstAddress: dpDstAddress,
-                        packetMark: dpPacketMark,
-                        dstPort: dpDstPort
-                    } = parsedMessage;
-                    if (dpChain) {
-                        // TODO: use apiClient for API call
-                        responseMessage.Status = 'ok';
+                        apiClient.markService(connectionMark, protocol, srcPort, dstPort, srcAddress, dstAddress)
+                            .then(() => {
+                                responseMessage.Status = 'ok';
+                            })
+                            .catch((error) => {
+                                logger.error(`Failed to mark connection: ${error}`);
+                            });
                     } else {
                         logger.error('Message missing required fields');
                     }
