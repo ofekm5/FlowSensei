@@ -179,47 +179,67 @@ class APIClient {
         const incrementStep = 1000; // 1000 kbps increment step
         const minLimitAt = 10000;   // 10,000 kbps minimum limit-at value
         const maxLimitAt = 50000;   // 50,000 kbps maximum limit-at value
+        
+        // Burst parameters
+        const defaultBurstLimit = 60000;    // 60,000 kbps burst limit
+        const defaultBurstThreshold = 40000; // 40,000 kbps burst threshold
+        const defaultBurstTime = 15;        // 15 seconds burst time
     
         for (const [routerID, apiSession] of Object.entries(this.apiSessions)) {
             try {
                 const totalUsage = this.calculateTotalUsage(apiSession);
-    
+        
                 const [globalQueue] = await apiSession.write('/queue/tree/print', [
                     `?name=global`, // Assuming the global queue is named 'global'
                 ]);
-
+    
                 const globalMaxLimit = parseInt(globalQueue['max-limit'], 10);
                 const globalLimitAt = parseInt(globalQueue['limit-at'], 10);
                 const globalAvailableBandwidth = globalMaxLimit - globalLimitAt;
-    
+        
                 let newLimitAt = globalLimitAt;
-    
+                let newBurstLimit = defaultBurstLimit;
+                let newBurstThreshold = defaultBurstThreshold;
+        
                 // Check if the global queue has enough bandwidth available
                 if (totalUsage > (maxBandwidth * threshold / 100) && globalAvailableBandwidth > incrementStep) {
                     newLimitAt = Math.min(globalLimitAt + incrementStep, maxLimitAt);
                     logger.info(`Router ${routerID}: Bandwidth exceeded ${threshold}%, increasing global limit-at to ${newLimitAt} kbps`);
+                    
+                    // Increase burst limit and threshold if increasing limit-at
+                    newBurstLimit = Math.min(newBurstLimit + incrementStep, maxLimitAt);
+                    newBurstThreshold = Math.min(newBurstThreshold + (incrementStep / 2), maxLimitAt);
+                    logger.info(`Router ${routerID}: Increasing burst limit to ${newBurstLimit} kbps and burst threshold to ${newBurstThreshold} kbps`);
                 } 
                 else if (totalUsage <= (maxBandwidth * threshold / 100)) {
                     newLimitAt = Math.max(globalLimitAt - incrementStep, minLimitAt);
                     logger.info(`Router ${routerID}: Bandwidth below ${threshold}%, decreasing global limit-at to ${newLimitAt} kbps`);
+                    
+                    // Decrease burst limit and threshold if decreasing limit-at
+                    newBurstLimit = Math.max(newBurstLimit - incrementStep, minLimitAt);
+                    newBurstThreshold = Math.max(newBurstThreshold - (incrementStep / 2), minLimitAt);
+                    logger.info(`Router ${routerID}: Decreasing burst limit to ${newBurstLimit} kbps and burst threshold to ${newBurstThreshold} kbps`);
                 } 
                 else {
                     logger.warn(`Router ${routerID}: Not enough available bandwidth in global queue to increase limit-at`);
                 }
-    
-                // Set the new limit-at value
+        
+                // Set the new limit-at and burst values
                 await apiSession.write('/queue/tree/set', [
                     `=name=global`,
                     `=limit-at=${newLimitAt}`,
+                    `=burst-limit=${newBurstLimit}`,
+                    `=burst-threshold=${newBurstThreshold}`,
+                    `=burst-time=${defaultBurstTime}`,
                 ]);
-                logger.info(`Router ${routerID}: Set global limit-at to ${newLimitAt} kbps`);
-    
+                logger.info(`Router ${routerID}: Set global limit-at to ${newLimitAt} kbps, burst limit to ${newBurstLimit} kbps, and burst threshold to ${newBurstThreshold} kbps`);
+        
             } 
             catch (error) {
                 logger.error(`Router ${routerID}: Failed to adjust global limit-at ${error}`);
             }
         }
-    }
+    }    
 
     public async disconnect(i_RouterID:string): Promise<void> {
         if (this.apiSessions[i_RouterID]) {
