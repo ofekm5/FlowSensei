@@ -18,32 +18,37 @@ interface AddNodeToQueueTreeParams {
 }
 
 class APIClient {
-    private apiSessions: { [key: string]: RouterOSAPI } = {};
+    private apiSessions: Map<string, RouterOSAPI>;
+
+    constructor() {
+        this.apiSessions = new Map<string, RouterOSAPI>();
+    }
 
     public async login(i_Host:string, i_Username:string, i_Password:string, i_RouterID:string){
-        try{
-            this.apiSessions[i_RouterID] = new RouterOSAPI({
-                host: i_Host,
-                user: i_Username,
-                password: i_Password,
-                port: 8728
-            });
+        if (this.apiSessions.get(i_RouterID)) {
+            logger.warn(`API client already connected to ${i_Host} with username ${i_Username}`);
+            return;
+        }
+
+        const sessionTry = new RouterOSAPI({
+            host: i_Host,
+            user: i_Username,
+            password: i_Password,
+            port: 8728
+        });
     
-            return this.apiSessions[i_RouterID].connect().then(() => {
-                logger.info('API client connected');
-            }).catch((err: any) => {
-                logger.error(`API client connection error: ${err}`);
-            });
-        }
-        catch(error){
-            logger.error('Failed to login');
-            throw new Error('Failed to login');
-        }
+        return sessionTry.connect().then(() => {
+            logger.info(`API client connected to ${i_Host} with username ${i_Username}`);
+            this.apiSessions.set(i_RouterID, sessionTry);
+            this.startNetFlow(i_RouterID);
+        }).catch((err: any) => {
+            throw new Error(`API client connection error: ${err}`);
+        });
     }
 
     //Each connection mark is uniquely associated with a single packet mark
-    public markService(i_RouterID: string, params: markServiceParams): void {
-        this.markConnection(i_RouterID, params.service + "_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress)
+    public async markService(i_RouterID: string, params: markServiceParams): Promise<void> {
+        await this.markConnection(i_RouterID, params.service + "_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress)
             .then(() => {
                 return this.markPacket(i_RouterID, params.service + "_packet", params.service + "_connection", params.protocol, params.srcPort, params.dstPort, params.srcAddress, params.dstAddress);
             })
@@ -51,12 +56,12 @@ class APIClient {
                 logger.info(`Successfully marked connection and packet for service: ${params.service}`);
             })
             .catch((error) => {
-                logger.error(`Failed to mark service for ${params.service}: ${error}`);
-            });
+                throw new Error(`Failed to mark service for ${params.service}: ${error}`);
+        });
     }
 
     private async markConnection(i_RouterID: string, connectionMark: string, protocol: string, srcPort: string | undefined, dstPort: string, srcAddress: string | undefined, dstAddress: string | undefined): Promise<void> {
-        if (!this.apiSessions[i_RouterID]) {
+        if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
             throw new Error('API session not initialized');
         }
 
@@ -73,16 +78,16 @@ class APIClient {
         if (dstAddress) command.push(`=dst-address=${dstAddress}`);
         if (srcPort) command.push(`=src-port=${srcPort}`);
     
-        return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
+        return this.apiSessions.get(i_RouterID)!.write('/ip/firewall/mangle/add', command)
             .then(() => logger.info(`Mangle connection rule for ${connectionMark} added successfully`))
             .catch((error) => {
-                logger.error(`Failed to add mangle connection rule for ${connectionMark}: ${error}`);
-                throw new Error(`Failed to add mangle connection rule for ${connectionMark}`);
-            });
+                throw new Error(`Failed to add mangle connection rule for ${connectionMark}: ${error}`);
+            }
+        );
     }
     
     private async markPacket(i_RouterID: string, packetMark: string, connectionMark: string, protocol: string, srcPort: string | undefined, dstPort: string, srcAddress: string | undefined, dstAddress: string | undefined): Promise<void> {
-        if (!this.apiSessions[i_RouterID]) {
+        if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
             throw new Error('API session not initialized');
         }
         
@@ -99,16 +104,16 @@ class APIClient {
         if (srcPort) command.push(`=src-port=${srcPort}`);
         if (protocol) command.push(`=protocol=${protocol}`);
     
-        return this.apiSessions[i_RouterID].write('/ip/firewall/mangle/add', command)
+        return this.apiSessions.get(i_RouterID)!.write('/ip/firewall/mangle/add', command)
             .then(() => logger.info(`Mangle packet rule for ${packetMark} added successfully`))
             .catch((error) => {
-                logger.error(`Failed to add mangle packet rule for ${packetMark}: ${error}`);
-                throw new Error(`Failed to add mangle packet rule for ${packetMark}`);
-            });
+                throw new Error(`Failed to add mangle packet rule for ${packetMark}: ${error}`);
+            }
+        );
     }
 
     public async addNodeToQueueTree(i_RouterID:string, params: AddNodeToQueueTreeParams) {
-        if (!this.apiSessions[i_RouterID]) {
+        if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
             throw new Error('API session not initialized');
         }
         const {
@@ -125,17 +130,45 @@ class APIClient {
             `=queue=default`,
         ];
     
-        return this.apiSessions[i_RouterID].write('/queue/tree/add', command)
+        return this.apiSessions.get(i_RouterID)!.write('/queue/tree/add', command)
             .then(() => logger.info(`Node ${name} added to queue tree successfully`))
             .catch((error) => {
-                logger.error(`Failed to add node to queue tree for ${name}: ${error}`);
-                throw new Error(`Failed to add node to queue tree for ${name}`);
+                throw new Error(`Failed to add node to queue tree for ${name}: ${error}`);
             }
         );
     }
+
+    public async deleteNodeFromGlobalQueue(i_RouterID: string, nodeName: string): Promise<void> {
+        try {
+            if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
+                throw new Error('API session not initialized');
+            }
+
+            const nodes = await this.apiSessions.get(i_RouterID)!.write('/queue/tree/print', [
+                `?name=${nodeName}`,
+                `?parent=global`,
+            ]);
+    
+            if (nodes.length === 0) {
+                logger.warn(`Node with name '${nodeName}' not found in the global queue.`);
+                return;
+            }
+    
+            const nodeId = nodes[0]['.id'];
+    
+            await this.apiSessions.get(i_RouterID)!.write('/queue/tree/remove', [
+                `=.id=${nodeId}`,
+            ]);
+    
+            logger.info(`Node '${nodeName}' successfully deleted from the global queue.`);
+        } 
+        catch (error) {
+            throw new Error(`Failed to delete node '${nodeName}' from the global queue: ${error}`);
+        }
+    }
     
     public async updateNodePriority(i_RouterID:string, name: string, newPriority: string) {
-        if (!this.apiSessions[i_RouterID]) {
+        if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
             throw new Error('API session not initialized');
         }
     
@@ -144,48 +177,55 @@ class APIClient {
             `=priority=${newPriority}`,
         ];
     
-        return this.apiSessions[i_RouterID].write('/queue/tree/set', command)
+        return this.apiSessions.get(i_RouterID)!.write('/queue/tree/set', command)
             .then(() => logger.info(`Priority for node ${name} updated successfully`))
             .catch((error) => {
-                logger.error(`Failed to update priority for node ${name}: ${error}`);
-                throw new Error(`Failed to update priority for node ${name}`);
+                throw new Error(`Failed to update priority for node ${name}: ${error}`);
             }
         );
     }
 
-    private async startNetFlow(interfaceName: string, activeTimeout: number = 60, inactiveTimeout: number = 15) {
+    private async startNetFlow(i_RouterID: string) {
         try {
-            await this.apiClient.write('/ip/traffic-flow/set', [
+            if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
+                throw new Error('API session not initialized');
+            }
+
+            const activeTimeout: number = 60; 
+            const inactiveTimeout: number = 15;
+            await this.apiSessions.get(i_RouterID)!.write('/ip/traffic-flow/set', [
                 '=enabled=yes',
-                `=interfaces=${interfaceName}`,
+                `=interfaces=all`,
                 `=active-flow-timeout=${activeTimeout}`,
                 `=inactive-flow-timeout=${inactiveTimeout}`,
             ]);
             logger.info('NetFlow started');
         } catch (error) {
-            logger.error('Failed to start NetFlow: ' + error);
             throw new Error('Failed to start NetFlow');
         }
     }
 
-    private async calculateTotalUsage(apiSession: RouterOSAPI): number {
-        const interfaces = await apiSession.write('/interface/print', []);
+    private async calculateTotalUsage(i_RouterID: string): Promise<number> {
+        if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
+            throw new Error('API session not initialized');
+        }
+
+        const interfaces = await this.apiSessions.get(i_RouterID)!.write('/interface/print', []);
         let totalInUsage = 0;
         let totalOutUsage = 0;
         for (const iface of interfaces) {
-                    const [interfaceStats] = await apiSession.write('/interface/monitor-traffic', [
-                        `=interface=${iface.name}`,
-                        '=once=',
-                    ]);
+            const [interfaceStats] = await this.apiSessions.get(i_RouterID)!.write('/interface/monitor-traffic', [
+                `=interface=${iface.name}`,
+                '=once=',
+            ]);
     
-                    const inUsage = parseInt(interfaceStats['rx-bits-per-second'], 10) / 1000; // Convert to kbps
-                    const outUsage = parseInt(interfaceStats['tx-bits-per-second'], 10) / 1000; // Convert to kbps
+            const inUsage = parseInt(interfaceStats['rx-bits-per-second'], 10) / 1000; // Convert to kbps
+            const outUsage = parseInt(interfaceStats['tx-bits-per-second'], 10) / 1000; // Convert to kbps
     
-                    totalInUsage += inUsage;
-                    totalOutUsage += outUsage;
-                }
-    
-                return totalInUsage + totalOutUsage;
+            totalInUsage += inUsage;
+            totalOutUsage += outUsage;
+        }
+        return totalInUsage + totalOutUsage;
     }
 
     public async adjustLimit() {
@@ -200,9 +240,9 @@ class APIClient {
         const defaultBurstThreshold = 40000; // 40,000 kbps burst threshold
         const defaultBurstTime = 15;        // 15 seconds burst time
     
-        for (const [routerID, apiSession] of Object.entries(this.apiSessions)) {
+        for (const [routerID, apiSession] of this.apiSessions) {
             try {
-                const totalUsage = this.calculateTotalUsage(apiSession);
+                const totalUsage = await this.calculateTotalUsage(routerID);
         
                 const [globalQueue] = await apiSession.write('/queue/tree/print', [
                     `?name=global`, // Assuming the global queue is named 'global'
@@ -239,7 +279,6 @@ class APIClient {
                     logger.warn(`Router ${routerID}: Not enough available bandwidth in global queue to increase limit-at`);
                 }
         
-                // Set the new limit-at and burst values
                 await apiSession.write('/queue/tree/set', [
                     `=name=global`,
                     `=limit-at=${newLimitAt}`,
@@ -251,15 +290,19 @@ class APIClient {
         
             } 
             catch (error) {
-                logger.error(`Router ${routerID}: Failed to adjust global limit-at ${error}`);
+                throw new Error(`Router ${routerID}: Failed to adjust global limit-at ${error}`);
             }
         }
     }    
 
     public async disconnect(i_RouterID:string): Promise<void> {
-        if (this.apiSessions[i_RouterID]) {
-            await this.apiSessions[i_RouterID].close();
-            logger.info('API client disconnected');
+        if (this.apiSessions.get(i_RouterID)) {
+            await this.apiSessions.get(i_RouterID)!.close();
+            this.apiSessions.delete(i_RouterID);
+            logger.info(`${i_RouterID} session ended`);
+        }
+        else{
+            throw new Error(`API session of ${i_RouterID} not initialized`);
         }
     }
 }

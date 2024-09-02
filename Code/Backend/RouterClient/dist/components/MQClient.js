@@ -1,78 +1,66 @@
-import amqp, { Channel, Connection, Message } from 'amqplib/callback_api';
-import logger from '../logger';
-import apiClient from './APIClient';
-
-interface ResponseMessage {
-    Status: string;
-    Error?: string; 
-}
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const callback_api_1 = __importDefault(require("amqplib/callback_api"));
+const logger_1 = __importDefault(require("../logger"));
+const APIClient_1 = __importDefault(require("./APIClient"));
 class MessageProcessor {
-    public ConnectToRabbit(rabbitMqUrl: string, exchange: string) {
-        amqp.connect(rabbitMqUrl, (error0: any, connection: Connection) => {
+    ConnectToRabbit(rabbitMqUrl, exchange) {
+        callback_api_1.default.connect(rabbitMqUrl, (error0, connection) => {
             if (error0) {
-                logger.error(`Connection error: ${error0}`);
-                setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000); 
+                logger_1.default.error(`Connection error: ${error0}`);
+                setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000);
                 return;
             }
-
-            connection.createChannel((error1: any, channel: Channel) => {
+            connection.createChannel((error1, channel) => {
                 if (error1) {
-                    logger.error(`Channel error: ${error1}`);
+                    logger_1.default.error(`Channel error: ${error1}`);
                     connection.close();
-                    setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000); 
+                    setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000);
                     return;
                 }
-
                 channel.assertExchange(exchange, 'direct', { durable: false });
-                channel.assertQueue('queue', { durable: false }, (error2: any, q: amqp.Replies.AssertQueue) => {
+                channel.assertQueue('queue', { durable: false }, (error2, q) => {
                     if (error2) {
-                        logger.error(`Queue assertion error: ${error2}`);
-                        channel.close(() => {});
-                        connection.close(() => {});
-                        setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000); 
+                        logger_1.default.error(`Queue assertion error: ${error2}`);
+                        channel.close(() => { });
+                        connection.close(() => { });
+                        setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000);
                         return;
                     }
-
                     channel.bindQueue(q.queue, exchange, 'request_key');
-
-                    channel.prefetch(1); 
-                    logger.info(' [x] Awaiting RPC requests');
-
-                    channel.consume(q.queue, async (msg: Message | null) => {
+                    channel.prefetch(1);
+                    logger_1.default.info(' [x] Awaiting RPC requests');
+                    channel.consume(q.queue, async (msg) => {
                         if (msg) {
                             const messageContent = msg.content.toString();
-                            logger.info(` [.] Received ${messageContent}`);
+                            logger_1.default.info(` [.] Received ${messageContent}`);
                             const response = await this.processMessage(messageContent);
                             channel.sendToQueue(msg.properties.replyTo, Buffer.from(response), {
                                 correlationId: msg.properties.correlationId
                             });
-                    
                             channel.ack(msg);
                         }
                     });
                 });
             });
-
             connection.on('error', (err) => {
-                logger.error(`Connection error: ${err}`);
-                setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000); 
+                logger_1.default.error(`Connection error: ${err}`);
+                setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000);
             });
-
             connection.on('close', () => {
-                logger.info('Connection closed, retrying...');
-                setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000); 
+                logger_1.default.info('Connection closed, retrying...');
+                setTimeout(() => this.ConnectToRabbit(rabbitMqUrl, exchange), 5000);
             });
         });
     }
-
-    private async processMessage(message: string): Promise<string> {
-        let responseMessage: ResponseMessage = { Status: 'failed' };
-
+    async processMessage(message) {
+        let responseMessage = { Status: 'failed' };
         try {
             const parsedMessage = JSON.parse(message);
             const { Type } = parsedMessage;
-
             if (Type) {
                 switch (Type) {
                     case "login":
@@ -96,47 +84,37 @@ class MessageProcessor {
                         responseMessage.Status = 'ok';
                         break;
                     default:
-                        logger.error('Invalid message type');
+                        logger_1.default.error('Invalid message type');
                         break;
                 }
-            } 
-            else {
-                logger.error('Message type does not exist');
             }
-        } 
+            else {
+                logger_1.default.error('Message type does not exist');
+            }
+        }
         catch (error) {
             responseMessage.Status = 'failed';
             responseMessage.Error = `Error processing message: ${error instanceof Error ? error.message : error}`;
-            logger.error(`Error processing message: ${error}`);
+            logger_1.default.error(`Error processing message: ${error}`);
         }
-
         return JSON.stringify(responseMessage);
     }
-
-    private async handleLogin(parsedMessage: any): Promise<void> {
+    async handleLogin(parsedMessage) {
         const { Host, Username, Password, RouterID } = parsedMessage;
         if (Host && Username && Password && RouterID) {
-            await apiClient.login(Host, Username, Password, RouterID)
-                .catch((error: any) => {
-                    throw new Error(`Failed to login: ${error}`);
-                });
-        } 
+            await APIClient_1.default.login(Host, Username, Password, RouterID)
+                .catch((error) => {
+                throw new Error(`Failed to login: ${error}`);
+            });
+        }
         else {
             throw new Error('Missing required fields for login');
         }
     }
-
-    private async handleMarkService(parsedMessage: any): Promise<void> {
-        const {
-            service,
-            protocol,
-            dstPort,
-            srcPort,
-            srcAddress,
-            dstAddress
-        } = parsedMessage;
+    async handleMarkService(parsedMessage) {
+        const { service, protocol, dstPort, srcPort, srcAddress, dstAddress } = parsedMessage;
         if (service && protocol && dstPort) {
-            await apiClient.markService(parsedMessage.RouterID, {
+            await APIClient_1.default.markService(parsedMessage.RouterID, {
                 service,
                 protocol,
                 dstPort,
@@ -144,63 +122,55 @@ class MessageProcessor {
                 srcAddress,
                 dstAddress
             })
-            .catch((error: any) => {
-                throw (`Failed to mark service: ${error}`);;
+                .catch((error) => {
+                throw (`Failed to mark service: ${error}`);
+                ;
             });
-        } 
+        }
         else {
             throw new Error('Missing required fields for markService');
         }
     }
-
-    private async handleAddNodeToQueueTree(parsedMessage: any): Promise<void> {
-        const {
-            name,
-            parent,
-            packetMark,
-            priority,
-        } = parsedMessage;
+    async handleAddNodeToQueueTree(parsedMessage) {
+        const { name, parent, packetMark, priority, } = parsedMessage;
         if (name && parent && packetMark && priority) {
-            await apiClient.addNodeToQueueTree(parsedMessage.RouterID, {
+            await APIClient_1.default.addNodeToQueueTree(parsedMessage.RouterID, {
                 name,
                 parent,
                 packetMark,
                 priority,
             })
-            .catch((error: any) => {
+                .catch((error) => {
                 throw new Error(`Failed to add node to queue tree: ${error}`);
             });
-        } 
+        }
         else {
             throw new Error('Missing required fields for addNodeToQueueTree');
         }
     }
-
-    private async handleUpdateNodePriority(parsedMessage: any): Promise<void> {
+    async handleUpdateNodePriority(parsedMessage) {
         const { name, newPriority, RouterID } = parsedMessage;
         if (name && newPriority && RouterID) {
-            await apiClient.updateNodePriority(RouterID, name, newPriority)
-                .catch((error: any) => {
-                    throw new Error(`Failed to update node priority: ${error}`);
-                });
-        } 
+            await APIClient_1.default.updateNodePriority(RouterID, name, newPriority)
+                .catch((error) => {
+                throw new Error(`Failed to update node priority: ${error}`);
+            });
+        }
         else {
             throw new Error('Missing required fields for updateNodePriority');
         }
     }
-
-    private async handleDisconnect(parsedMessage: any): Promise<void> {
+    async handleDisconnect(parsedMessage) {
         const { RouterID } = parsedMessage;
         if (RouterID) {
-            await apiClient.disconnect(RouterID)
-                .catch((error: any) => {
-                    throw new Error(`Failed to disconnect: ${error}`);
-                });
-        } 
+            await APIClient_1.default.disconnect(RouterID)
+                .catch((error) => {
+                throw new Error(`Failed to disconnect: ${error}`);
+            });
+        }
         else {
             throw new Error('Missing required fields for disconnect');
         }
     }
 }
-
-export default MessageProcessor;
+exports.default = MessageProcessor;
