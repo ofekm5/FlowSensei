@@ -153,6 +153,21 @@ class APIClient {
         );
     }
 
+    private async startNetFlow(interfaceName: string, activeTimeout: number = 60, inactiveTimeout: number = 15) {
+        try {
+            await this.apiClient.write('/ip/traffic-flow/set', [
+                '=enabled=yes',
+                `=interfaces=${interfaceName}`,
+                `=active-flow-timeout=${activeTimeout}`,
+                `=inactive-flow-timeout=${inactiveTimeout}`,
+            ]);
+            logger.info('NetFlow started');
+        } catch (error) {
+            logger.error('Failed to start NetFlow: ' + error);
+            throw new Error('Failed to start NetFlow');
+        }
+    }
+
     private async calculateTotalUsage(apiSession: RouterOSAPI): number {
         const interfaces = await apiSession.write('/interface/print', []);
         let totalInUsage = 0;
