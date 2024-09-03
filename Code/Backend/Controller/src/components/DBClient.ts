@@ -2,21 +2,15 @@ import logger from "../logger";
 import { Client } from 'pg';
 
 class DBClient {
-    private client: Client;
+    private client: Client | null = null;
 
-    constructor() {
+    public async connectToDB(dbURL: string) {
         this.client = new Client({
-            user: 'myuser',         
-            host: 'localhost',      
-            database: 'mydatabase', 
-            password: 'mypassword', 
-            port: 5432,             
+            connectionString: dbURL,
         });
-    }
 
-    public async connectToDB() {
         return new Promise<void>((resolve, reject) => {
-            this.client.connect((error) => {
+            this.client?.connect((error) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -28,8 +22,11 @@ class DBClient {
     }
 
     public async disconnectFromDB() {
+        if (!this.client) {
+            return;
+        }
         return new Promise<void>((resolve, reject) => {
-            this.client.end((error) => {
+            this.client!.end((error) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -41,6 +38,9 @@ class DBClient {
     }
 
     public async createTables() {
+        if (!this.client) {
+            return;
+        }
         const uuidExtensionQuery = `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`;
         
         const routerTableQuery = `CREATE TABLE IF NOT EXISTS routers (
@@ -63,22 +63,22 @@ class DBClient {
             )`;
 
         return new Promise<void>((resolve, reject) => {
-            this.client.query(uuidExtensionQuery, (error) => {
+            this.client!.query(uuidExtensionQuery, (error) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
                 }
-                this.client.query(routerTableQuery, (error) => {
+                this.client!.query(routerTableQuery, (error) => {
                     if (error) {
                         logger.error(`An error has occurred: ${error}`);
                         reject(error);
                     }
-                    this.client.query(servicesTableQuery, (error) => {
+                    this.client!.query(servicesTableQuery, (error) => {
                         if (error) {
                             logger.error(`An error has occurred: ${error}`);
                             reject(error);
                         }
-                        this.client.query(serviceToPriorityTableQuery, (error) => {
+                        this.client!.query(serviceToPriorityTableQuery, (error) => {
                             if (error) {
                                 logger.error(`An error has occurred: ${error}`);
                                 reject(error);
@@ -92,9 +92,13 @@ class DBClient {
     }
 
     public async insertNewRouter(publicIp: string){
+        if (!this.client) {
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             const insertQuery = `INSERT INTO routers(public_ip) VALUES ($1)`;
-            this.client.query(insertQuery, [publicIp], (error, result) => {
+            this.client!.query(insertQuery, [publicIp], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -106,9 +110,13 @@ class DBClient {
     }
 
     public async isRouterExists(publicIp: string) {
+        if (!this.client) {
+            return;
+        }
+
         const selectQuery = `SELECT 1 FROM routers WHERE public_ip = $1`;
         return new Promise((resolve, reject) => {
-            this.client.query(selectQuery, [publicIp], (err, result) => {
+            this.client!.query(selectQuery, [publicIp], (err, result) => {
                 if (err) {
                     logger.error(`An error has occurred: ${err}`);
                     reject(err);
@@ -120,9 +128,13 @@ class DBClient {
     }
 
     public async deleteService(routerId: string, serviceName: string) {
+        if (!this.client) {
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             const deleteQuery = `DELETE FROM service_to_priority WHERE router_id = $1 AND service_id = $2`;
-            this.client.query(deleteQuery, [routerId, serviceName], (error, result) => {
+            this.client!.query(deleteQuery, [routerId, serviceName], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -133,9 +145,13 @@ class DBClient {
     }
 
     public async updatePriority(routerId: string, serviceName: string, priority: number) {
+        if (!this.client) {
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             const updateQuery = `UPDATE service_to_priority SET priority = $1 WHERE router_id = $2 AND service_id = $3`;
-            this.client.query(updateQuery, [priority, routerId, serviceName], (error, result) => {
+            this.client!.query(updateQuery, [priority, routerId, serviceName], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -146,10 +162,14 @@ class DBClient {
     }
 
     public async insertNewPriorities(routerId: string, services: {serviceName: string, priority: number}[]) {
+        if (!this.client) {
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             for (let service of services) {
                 const insertQuery = `INSERT INTO service_to_priority(router_id, service_id, priority) VALUES ($1, $2, $3)`;
-                this.client.query(insertQuery, [routerId, service.serviceName, service.priority], (error, result) => {
+                this.client!.query(insertQuery, [routerId, service.serviceName, service.priority], (error, result) => {
                     if (error) {
                         logger.error(`An error has occurred: ${error}`);
                         reject(error);
@@ -161,9 +181,13 @@ class DBClient {
     }
 
     public async getServiceIdByName(serviceId: string) {
+        if (!this.client) {
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             const selectQuery = `SELECT service_id FROM services WHERE service_name = $1`;
-            this.client.query(selectQuery, [serviceId], (error, result) => {
+            this.client!.query(selectQuery, [serviceId], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -174,9 +198,13 @@ class DBClient {
     }
     
     public async getRouterID(public_ip: string) {
+        if (!this.client) {
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             const selectQuery = `SELECT router_id FROM routers WHERE public_ip = $1`;
-            this.client.query(selectQuery, [public_ip], (error, result) => {
+            this.client!.query(selectQuery, [public_ip], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -187,9 +215,13 @@ class DBClient {
     }
 
     public async deleteRouter(publicIp: string) {
+        if (!this.client) {
+            return;
+        }
+        
         return new Promise((resolve, reject) => {
             const deleteQuery = `DELETE FROM routers WHERE public_ip = $1`;
-            this.client.query(deleteQuery, [publicIp], (error, result) => {
+            this.client!.query(deleteQuery, [publicIp], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
