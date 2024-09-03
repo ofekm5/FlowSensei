@@ -91,8 +91,7 @@ class DBClient {
         }); 
     }
 
-
-    public async insertNewUser(publicIp: string){
+    public async insertNewRouter(publicIp: string){
         return new Promise((resolve, reject) => {
             const insertQuery = `INSERT INTO routers(public_ip) VALUES ($1)`;
             this.client.query(insertQuery, [publicIp], (error, result) => {
@@ -106,7 +105,7 @@ class DBClient {
 
     }
 
-    public async isUserExists(publicIp: string) {
+    public async isRouterExists(publicIp: string) {
         const selectQuery = `SELECT 1 FROM routers WHERE public_ip = $1`;
         return new Promise((resolve, reject) => {
             this.client.query(selectQuery, [publicIp], (err, result) => {
@@ -120,10 +119,10 @@ class DBClient {
         });
     }
 
-    public async deleteUser(userName: string | string[]) {
+    public async deleteService(routerId: string, serviceName: string) {
         return new Promise((resolve, reject) => {
-            const deleteQuery = `DELETE FROM routers WHERE public_ip = $1`;
-            this.client.query(deleteQuery, [userName], (error, result) => {
+            const deleteQuery = `DELETE FROM service_to_priority WHERE router_id = $1 AND service_id = $2`;
+            this.client.query(deleteQuery, [routerId, serviceName], (error, result) => {
                 if (error) {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -131,7 +130,6 @@ class DBClient {
                 resolve(result);
             });
         });
-        
     }
 
     public async updatePriority(routerId: string, serviceName: string, priority: number) {
@@ -174,8 +172,8 @@ class DBClient {
             });
         });
     }
-
-    public async getRouterByPublicIp(public_ip: string) {
+    
+    public async getRouterID(public_ip: string) {
         return new Promise((resolve, reject) => {
             const selectQuery = `SELECT router_id FROM routers WHERE public_ip = $1`;
             this.client.query(selectQuery, [public_ip], (error, result) => {
@@ -184,6 +182,19 @@ class DBClient {
                     reject(error);
                 }
                 resolve(result.rows[0].router_id);
+            });
+        });
+    }
+
+    public async deleteRouter(publicIp: string) {
+        return new Promise((resolve, reject) => {
+            const deleteQuery = `DELETE FROM routers WHERE public_ip = $1`;
+            this.client.query(deleteQuery, [publicIp], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
             });
         });
     }

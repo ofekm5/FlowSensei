@@ -6,6 +6,10 @@ import apiClient from './components/APIClient';
 import cron from 'node-cron';
 
 dotenv.config();
+const PORT = process.env.PORT || 3000;
+const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
+const rabbitMqUrl = process.env.RABBIT_URL || 'amqp://myuser:mypass@localhost:5672';
+
 const app = express();
 
 app.get('/health', (req: Request, res: Response) => {
@@ -55,10 +59,6 @@ app.get('/test-api-client', async (req: Request, res: Response) => {
         res.status(500).json({ status: 'error', message: error.message });
     }
 });
-
-const PORT = process.env.PORT || 3000;
-const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
-const rabbitMqUrl = process.env.RABBIT_URL || 'amqp://myuser:mypass@localhost:5672';
 
 app.listen(PORT, () => {
     const messageProcessor = new MessageProcessor();

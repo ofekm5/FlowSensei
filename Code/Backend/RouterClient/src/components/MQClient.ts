@@ -95,6 +95,13 @@ class MessageProcessor {
                         await this.handleDisconnect(parsedMessage);
                         responseMessage.Status = 'ok';
                         break;
+                    case "deleteNodeFromGlobalQueue":
+                        await apiClient.deleteNodeFromGlobalQueue(parsedMessage.RouterID, parsedMessage.name)
+                            .catch((error: any) => {
+                                throw new Error(`Failed to delete node from global queue: ${error}`);
+                            });
+                        responseMessage.Status = 'ok';
+                        break;
                     default:
                         logger.error('Invalid message type');
                         break;

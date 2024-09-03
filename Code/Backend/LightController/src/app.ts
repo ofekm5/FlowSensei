@@ -1,21 +1,16 @@
 import dotenv from 'dotenv';
 import express from 'express';
-import dbClient from "./components/DBClient";
 import logger from "./logger";
-import { RabbitMQClient } from "./components/RabbitMQClient";
 import createRouter from './Router';
 
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
-const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
-const rabbitURL = process.env.RABBIT_URL || 'amqp://myuser:mypass@localhost:5672';
 
 const app = express();
-const rabbitMQClient = new RabbitMQClient(rabbitURL, exchange);
 
 app.use(express.json());
-app.use('/api', createRouter(rabbitMQClient));  
+app.use('/api', createRouter());  
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });
@@ -28,10 +23,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 async function startServer() {
     try {
-        await (dbClient.connectToDB().then(() => { dbClient.createTables()}));
-        logger.info('Connected to database and created tables');
+        logger.info('Starting demo Express server...');
         app.listen(PORT, () => {
-            logger.info(`Server is running on port ${PORT}`);
+            logger.info(`Demo server is running on port ${PORT}`);
         });
     } catch (error) {
         logger.error('An error has occurred: ' + error);
