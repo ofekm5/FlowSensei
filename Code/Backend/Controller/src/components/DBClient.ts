@@ -37,6 +37,28 @@ class DBClient {
         });
     }
 
+    public getServicesByRouterId(routerId: string) {
+        if (!this.client) {
+            return;
+        }
+    
+        return new Promise((resolve, reject) => {
+            const selectQuery = `
+                SELECT s.service_name, stp.priority
+                FROM service_to_priority stp
+                JOIN services s ON stp.service_id = s.service_id
+                WHERE stp.router_id = $1
+            `;
+            this.client!.query(selectQuery, [routerId], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result.rows);
+            });
+        });
+    }    
+
     public async createTables() {
         if (!this.client) {
             return;
@@ -161,7 +183,7 @@ class DBClient {
         });
     }
 
-    public async insertNewPriorities(routerId: string, services: {serviceName: string, priority: number}[]) {
+    public async insertNewService(routerId: string, services: {serviceName: string, priority: number}[]) {
         if (!this.client) {
             return;
         }
@@ -212,7 +234,8 @@ class DBClient {
                 if (result.rows.length === 0) {
                     logger.error(`No router found with public IP: ${public_ip}`);
                     reject(new Error(`No router found with public IP: ${public_ip}`));
-                } else {
+                } 
+                else {
                     resolve(result.rows[0].router_id);
                 }
             });

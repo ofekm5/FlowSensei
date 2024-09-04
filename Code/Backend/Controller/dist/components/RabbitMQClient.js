@@ -142,9 +142,10 @@ class RabbitMQClient {
         const response = await this.sendMessageToQueue(JSON.stringify(msgToSend));
         return response;
     }
-    async logout() {
+    async logout(routerID) {
         const msgToSend = {
-            type: 'logout'
+            type: 'logout',
+            routerID: routerID
         };
         const response = await this.sendMessageToQueue(JSON.stringify(msgToSend));
         return response;

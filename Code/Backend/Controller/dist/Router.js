@@ -12,17 +12,18 @@ const createRouter = (rabbitMQClient, secret) => {
     async function authenticateToken(req, res, next) {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
+        const secret = process.env.ACCESS_TOKEN_SECRET;
         if (!secret) {
             throw new Error('ACCESS_TOKEN_SECRET is not defined');
         }
         if (token == null) {
-            return res.sendStatus(401);
+            return res.sendStatus(401); // No token provided
         }
-        jsonwebtoken_1.default.verify(token, secret, (err, user) => {
+        jsonwebtoken_1.default.verify(token, secret, (err, payload) => {
             if (err) {
-                return res.sendStatus(403);
+                return res.sendStatus(403); // Invalid token
             }
-            req.user = user;
+            req.routerId = payload.routerId;
             next();
         });
     }
@@ -34,8 +35,8 @@ const createRouter = (rabbitMQClient, secret) => {
                 logger_1.default.info('Invalid request: ' + msg);
                 return;
             }
-            const user = req.user;
-            const routerId = user.routerId;
+            const routerId = req.routerId;
+            ;
             const priorities = msg.priorities;
             await DBClient_1.default.insertNewPriorities(routerId, priorities);
             await rabbitMQClient.createNewPriorityQueue(priorities);
@@ -54,7 +55,7 @@ const createRouter = (rabbitMQClient, secret) => {
                 logger_1.default.info('Invalid request: ' + msg);
                 return;
             }
-            const routerId = msg.routerId;
+            const routerId = req.routerId;
             const priorities = msg.priorities;
             logger_1.default.info(`routerId: ${routerId}, priorities: ${priorities}`);
             for (let element of priorities) {
@@ -80,7 +81,7 @@ const createRouter = (rabbitMQClient, secret) => {
                 logger_1.default.info('Invalid request: ' + msg);
                 return;
             }
-            const routerId = msg.routerId;
+            const routerId = req.routerId;
             const serviceName = msg.serviceName;
             await DBClient_1.default.deleteService(routerId, serviceName);
             await rabbitMQClient.deleteNode(routerId, serviceName);
@@ -105,6 +106,10 @@ const createRouter = (rabbitMQClient, secret) => {
             const routerId = await DBClient_1.default.getRouterID(publicIp);
             if (!routerId) {
                 await DBClient_1.default.insertNewRouter(publicIp);
+                logger_1.default.info(`New router with public IP ${publicIp} inserted`);
+            }
+            else {
+                logger_1.default.info(`Router with public IP ${publicIp} already exists with ID ${routerId}`);
             }
             logger_1.default.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);
             const response = await rabbitMQClient.login(username.toString(), password.toString(), publicIp.toString(), routerId.toString());
@@ -115,7 +120,7 @@ const createRouter = (rabbitMQClient, secret) => {
                 if (!secret) {
                     throw new Error('ACCESS_TOKEN_SECRET is not defined');
                 }
-                const token = jsonwebtoken_1.default.sign(payload, secret, { expiresIn: '1h' });
+                const token = jsonwebtoken_1.default.sign(payload, secret, { expiresIn: '3h' });
                 const responseToUser = {
                     token: token,
                     message: response
@@ -132,9 +137,10 @@ const createRouter = (rabbitMQClient, secret) => {
             res.status(500).json({ error: 'An error has occurred ' + error });
         }
     });
-    router.post('/logout', async (req, res) => {
+    router.post('/logout', authenticateToken, async (req, res) => {
         try {
-            const response = await rabbitMQClient.logout();
+            const routerId = req.routerId;
+            const response = await rabbitMQClient.logout(routerId);
             res.status(200).json({ response: response });
         }
         catch (error) {

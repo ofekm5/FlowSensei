@@ -123,6 +123,12 @@ export class RabbitMQClient {
             packetMark: '',
             priority: ''
         };
+        service,
+        protocol,
+        dstPort,
+        srcPort,
+        srcAddress,
+        dstAddress
 
         const firstQueueTreeMsg = JSON.stringify(upperTreeMsgParams);
         const response = await this.sendMessageToQueue(firstQueueTreeMsg);
@@ -182,9 +188,10 @@ export class RabbitMQClient {
         return response;
     }
 
-    public async logout() {
+    public async logout(routerID: string) {
         const msgToSend = {
-            type: 'logout'
+            type: 'logout',
+            routerID: routerID
         };
 
         const response = await this.sendMessageToQueue(JSON.stringify(msgToSend));

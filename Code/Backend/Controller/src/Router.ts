@@ -10,97 +10,25 @@ const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
     async function authenticateToken(req: any, res: any, next: any) {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
-
+        const secret = process.env.ACCESS_TOKEN_SECRET;
+    
         if (!secret) {
             throw new Error('ACCESS_TOKEN_SECRET is not defined');
         }
-
+    
         if (token == null) {
-            return res.sendStatus(401);
+            return res.sendStatus(401);  // No token provided
         }
-
-        jwt.verify(token, secret, (err: any, user: any) => {
+    
+        jwt.verify(token, secret, (err: any, payload: any) => {
             if (err) {
-                return res.sendStatus(403);
+                return res.sendStatus(403);  // Invalid token
             }
-
-            req.user = user;
+            req.routerId = payload.routerId;
+    
             next();
         });
     }
-
-    router.post('/service', authenticateToken, async (req: any, res: any) => {
-        try {
-            const msg = req.body;
-
-            if (!msg || !msg.priorities) {
-                res.status(400).json({ error: 'invalid request' });
-                logger.info('Invalid request: ' + msg);
-                return;
-            }
-
-            const user = req.user;
-            const routerId = user.routerId;
-            const priorities = msg.priorities;
-            await dbClient.insertNewPriorities(routerId, priorities);
-            await rabbitMQClient.createNewPriorityQueue(priorities);
-
-            res.status(200).json({ response: "created new priority queue successfully" });
-        } catch (error) {
-            logger.error('An error has occurred: ' + error);
-            res.status(500).json({ error: 'An error has occurred ' + error });
-        }
-    });
-
-    router.put('/service', authenticateToken, async (req: any, res: any) => {
-        try {
-            const msg = req.body;
-
-            if (!msg || !msg.priorities || !msg.routerId) {
-                res.status(400).json({ error: 'invalid request' });
-                logger.info('Invalid request: ' + msg);
-                return;
-            }
-
-            const routerId = msg.routerId;
-            const priorities = msg.priorities;
-            logger.info(`routerId: ${routerId}, priorities: ${priorities}`);
-            for (let element of priorities) {
-                const serviceName = element.serviceName;
-                const priority = element.priority;
-                await dbClient.updatePriority(routerId, serviceName, priority);
-                logger.info(`updated priority: ${priority} for service: ${serviceName} in db`);
-                await rabbitMQClient.updateNodesPriority(serviceName, priority);
-                logger.info(`updated priority queue for service: ${serviceName} in router`);
-            }
-
-            res.status(200).json({ response: "updated priority queue successfully" });
-        } catch (error) {
-            logger.error('An error has occurred: ' + error);
-            res.status(500).json({ error: 'An error has occurred ' + error });
-        }
-    });
-
-    router.delete('/service', authenticateToken, async (req: any, res: any) => {
-        try {
-            const msg = req.body;
-
-            if (!msg || !msg.serviceName || !msg.routerId) {
-                res.status(400).json({ error: 'invalid request' });
-                logger.info('Invalid request: ' + msg);
-                return;
-            }
-
-            const routerId = msg.routerId;
-            const serviceName = msg.serviceName;
-            await dbClient.deleteService(routerId, serviceName);
-            await rabbitMQClient.deleteNode(routerId, serviceName);
-            res.status(200).json({ response: "deleted service successfully" });
-        } catch (error) {
-            logger.error('An error has occurred: ' + error);
-            res.status(500).json({ error: 'An error has occurred ' + error });
-        }
-    });
 
     router.post('/login', async (req, res) => {
         try {
@@ -135,7 +63,7 @@ const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
                 if (!secret) {
                     throw new Error('ACCESS_TOKEN_SECRET is not defined');
                 }
-                const token = jwt.sign(payload, secret, { expiresIn: '1h' });
+                const token = jwt.sign(payload, secret, { expiresIn: '3h' });
                 const responseToUser = {
                     token: token,
                     message: response
@@ -152,10 +80,104 @@ const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
         }
     });
 
-    router.post('/logout', async (req, res) => {
+    router.post('/logout', authenticateToken, async (req:any, res:any) => {
         try {
-            const response = await rabbitMQClient.logout();
+            const routerId = req.routerId;
+            const response = await rabbitMQClient.logout(routerId);
             res.status(200).json({ response: response });
+        } 
+        catch (error) {
+            logger.error('An error has occurred: ' + error);
+            res.status(500).json({ error: 'An error has occurred ' + error });
+        }
+    });
+
+    router.get('/services', authenticateToken, async (req: any, res: any) => {
+        try {
+            const routerId = req.routerId;
+            const services = await dbClient.getServicesByRouterId(routerId);
+            res.status(200).json({ response: services });
+        } catch (error) {
+            logger.error('An error has occurred: ' + error);
+            res.status(500).json({ error: 'An error has occurred ' + error });
+        }
+    });
+
+    router.post('/service', authenticateToken, async (req: any, res: any) => {
+        try {
+            const msg = req.body;
+            const routerId = req.routerId;
+            const properties = msg.properties;
+            service,
+            protocol,
+            dstPort,
+            srcPort,
+            srcAddress,
+            dstAddress
+
+            if (!msg || !properties || ) {
+                res.status(400).json({ error: 'invalid request' });
+                logger.info('Invalid request: ' + msg);
+                return;
+            }
+
+            
+            await dbClient.insertNewPriorities(routerId, properties);
+            //todo: not each time is needed to create new queue
+            await rabbitMQClient.createNewPriorityQueue(properties);
+
+            res.status(200).json({ response: "created new priority queue successfully" });
+        } 
+        catch (error) {
+            logger.error('An error has occurred: ' + error);
+            res.status(500).json({ error: 'An error has occurred ' + error });
+        }
+    });
+
+    router.put('/service', authenticateToken, async (req: any, res: any) => {
+        try {
+            const msg = req.body;
+            const routerId = req.routerId;
+
+            if (!msg || !msg.priorities || !msg.routerId) {
+                res.status(400).json({ error: 'invalid request' });
+                logger.info('Invalid request: ' + msg);
+                return;
+            }
+
+            const priorities = msg.priorities;
+            logger.info(`routerId: ${routerId}, priorities: ${priorities}`);
+            for (let element of priorities) {
+                const serviceName = element.serviceName;
+                const priority = element.priority;
+                await dbClient.updatePriority(routerId, serviceName, priority);
+                logger.info(`updated priority: ${priority} for service: ${serviceName} in db`);
+                await rabbitMQClient.updateNodesPriority(serviceName, priority);
+                logger.info(`updated priority queue for service: ${serviceName} in router`);
+            }
+
+            res.status(200).json({ response: "updated priority queue successfully" });
+        } catch (error) {
+            logger.error('An error has occurred: ' + error);
+            res.status(500).json({ error: 'An error has occurred ' + error });
+        }
+    });
+
+    router.delete('/service', authenticateToken, async (req: any, res: any) => {
+        try {
+            const msg = req.body;
+            const routerId = req.routerId;
+
+            if (!msg || !msg.serviceName || !routerId) {
+                res.status(400).json({ error: 'invalid request' });
+                logger.info('Invalid request: ' + msg);
+                return;
+            }
+
+            const serviceName = msg.serviceName;
+            await dbClient.deleteService(routerId, serviceName);
+            await rabbitMQClient.deleteNode(routerId, serviceName);
+            res.status(200).json({ response: "deleted service successfully" });
         } catch (error) {
             logger.error('An error has occurred: ' + error);
             res.status(500).json({ error: 'An error has occurred ' + error });
