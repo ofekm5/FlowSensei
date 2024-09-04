@@ -13,10 +13,12 @@ dotenv_1.default.config();
 const PORT = process.env.PORT || 5000;
 const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
 const rabbitURL = process.env.RABBIT_URL || 'amqp://myuser:mypass@localhost:5672';
+const DATABASE_URL = process.env.DB_URL || 'mongodb://localhost:27017/mydb';
+const secret = process.env.JWT_SECRET || 'fd5ac1609d0f2d6a5b7c91385c09669f36137c427abdc4613b51c714ee47e9b6f8c4fd1f65d7bb2a79a00af7274aee19874c77148397aaaac82473eaadc4fc14';
 const app = (0, express_1.default)();
 const rabbitMQClient = new RabbitMQClient_1.RabbitMQClient(rabbitURL, exchange);
 app.use(express_1.default.json());
-app.use('/api', (0, Router_1.default)(rabbitMQClient));
+app.use('/api', (0, Router_1.default)(rabbitMQClient, secret));
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });
 });
@@ -26,7 +28,7 @@ app.use((err, req, res, next) => {
 });
 async function startServer() {
     try {
-        await (DBClient_1.default.connectToDB().then(() => { DBClient_1.default.createTables(); }));
+        await (DBClient_1.default.connectToDB(DATABASE_URL).then(() => { DBClient_1.default.createTables(); }));
         logger_1.default.info('Connected to database and created tables');
         app.listen(PORT, () => {
             logger_1.default.info(`Server is running on port ${PORT}`);

@@ -4,13 +4,12 @@ import jwt from 'jsonwebtoken';
 import logger from "./logger";
 import { RabbitMQClient } from "./components/RabbitMQClient";
 
-const createRouter = (rabbitMQClient: RabbitMQClient) => {
+const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
     const router = express.Router();
 
     async function authenticateToken(req: any, res: any, next: any) {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
-        const secret = process.env.ACCESS_TOKEN_SECRET;
 
         if (!secret) {
             throw new Error('ACCESS_TOKEN_SECRET is not defined');
@@ -120,6 +119,10 @@ const createRouter = (rabbitMQClient: RabbitMQClient) => {
 
             if (!routerId) {
                 await dbClient.insertNewRouter(publicIp);
+                logger.info(`New router with public IP ${publicIp} inserted`);
+            } 
+            else {
+                logger.info(`Router with public IP ${publicIp} already exists with ID ${routerId}`);
             }
             
             logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);

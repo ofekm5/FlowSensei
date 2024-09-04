@@ -7,12 +7,11 @@ const express_1 = __importDefault(require("express"));
 const DBClient_1 = __importDefault(require("./components/DBClient"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const logger_1 = __importDefault(require("./logger"));
-const createRouter = (rabbitMQClient) => {
+const createRouter = (rabbitMQClient, secret) => {
     const router = express_1.default.Router();
     async function authenticateToken(req, res, next) {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
-        const secret = process.env.ACCESS_TOKEN_SECRET;
         if (!secret) {
             throw new Error('ACCESS_TOKEN_SECRET is not defined');
         }

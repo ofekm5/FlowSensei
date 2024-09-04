@@ -13,8 +13,6 @@ RUN npm install
 # Copy the rest of the client application code to the container
 COPY . .
 
-RUN tsc
-
 # Expose the port if your client runs on a specific port
 # For example, if your router client has an API or web interface
 EXPOSE 3000  

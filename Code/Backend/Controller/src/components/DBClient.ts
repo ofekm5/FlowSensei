@@ -6,7 +6,7 @@ class DBClient {
 
     public async connectToDB(dbURL: string) {
         this.client = new Client({
-            connectionString: dbURL,
+            connectionString: dbURL
         });
 
         return new Promise<void>((resolve, reject) => {
@@ -201,7 +201,7 @@ class DBClient {
         if (!this.client) {
             return;
         }
-
+    
         return new Promise((resolve, reject) => {
             const selectQuery = `SELECT router_id FROM routers WHERE public_ip = $1`;
             this.client!.query(selectQuery, [public_ip], (error, result) => {
@@ -209,10 +209,15 @@ class DBClient {
                     logger.error(`An error has occurred: ${error}`);
                     reject(error);
                 }
-                resolve(result.rows[0].router_id);
+                if (result.rows.length === 0) {
+                    logger.error(`No router found with public IP: ${public_ip}`);
+                    reject(new Error(`No router found with public IP: ${public_ip}`));
+                } else {
+                    resolve(result.rows[0].router_id);
+                }
             });
         });
-    }
+    }    
 
     public async deleteRouter(publicIp: string) {
         if (!this.client) {

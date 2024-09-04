@@ -7,17 +7,15 @@ const logger_1 = __importDefault(require("../logger"));
 const pg_1 = require("pg");
 class DBClient {
     constructor() {
-        this.client = new pg_1.Client({
-            user: 'myuser',
-            host: 'localhost',
-            database: 'mydatabase',
-            password: 'mypassword',
-            port: 5432,
-        });
+        this.client = null;
     }
-    async connectToDB() {
+    async connectToDB(dbURL) {
+        this.client = new pg_1.Client({
+            connectionString: dbURL
+        });
         return new Promise((resolve, reject) => {
-            this.client.connect((error) => {
+            var _a;
+            (_a = this.client) === null || _a === void 0 ? void 0 : _a.connect((error) => {
                 if (error) {
                     logger_1.default.error(`An error has occurred: ${error}`);
                     reject(error);
@@ -28,6 +26,9 @@ class DBClient {
         });
     }
     async disconnectFromDB() {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             this.client.end((error) => {
                 if (error) {
@@ -40,6 +41,9 @@ class DBClient {
         });
     }
     async createTables() {
+        if (!this.client) {
+            return;
+        }
         const uuidExtensionQuery = `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`;
         const routerTableQuery = `CREATE TABLE IF NOT EXISTS routers (
             router_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -86,6 +90,9 @@ class DBClient {
         });
     }
     async insertNewRouter(publicIp) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const insertQuery = `INSERT INTO routers(public_ip) VALUES ($1)`;
             this.client.query(insertQuery, [publicIp], (error, result) => {
@@ -98,6 +105,9 @@ class DBClient {
         });
     }
     async isRouterExists(publicIp) {
+        if (!this.client) {
+            return;
+        }
         const selectQuery = `SELECT 1 FROM routers WHERE public_ip = $1`;
         return new Promise((resolve, reject) => {
             this.client.query(selectQuery, [publicIp], (err, result) => {
@@ -112,6 +122,9 @@ class DBClient {
         });
     }
     async deleteService(routerId, serviceName) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const deleteQuery = `DELETE FROM service_to_priority WHERE router_id = $1 AND service_id = $2`;
             this.client.query(deleteQuery, [routerId, serviceName], (error, result) => {
@@ -124,6 +137,9 @@ class DBClient {
         });
     }
     async updatePriority(routerId, serviceName, priority) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const updateQuery = `UPDATE service_to_priority SET priority = $1 WHERE router_id = $2 AND service_id = $3`;
             this.client.query(updateQuery, [priority, routerId, serviceName], (error, result) => {
@@ -136,6 +152,9 @@ class DBClient {
         });
     }
     async insertNewPriorities(routerId, services) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             for (let service of services) {
                 const insertQuery = `INSERT INTO service_to_priority(router_id, service_id, priority) VALUES ($1, $2, $3)`;
@@ -150,6 +169,9 @@ class DBClient {
         });
     }
     async getServiceIdByName(serviceId) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const selectQuery = `SELECT service_id FROM services WHERE service_name = $1`;
             this.client.query(selectQuery, [serviceId], (error, result) => {
@@ -163,6 +185,9 @@ class DBClient {
         });
     }
     async getRouterID(public_ip) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const selectQuery = `SELECT router_id FROM routers WHERE public_ip = $1`;
             this.client.query(selectQuery, [public_ip], (error, result) => {
@@ -170,11 +195,20 @@ class DBClient {
                     logger_1.default.error(`An error has occurred: ${error}`);
                     reject(error);
                 }
-                resolve(result.rows[0].router_id);
+                if (result.rows.length === 0) {
+                    logger_1.default.error(`No router found with public IP: ${public_ip}`);
+                    reject(new Error(`No router found with public IP: ${public_ip}`));
+                }
+                else {
+                    resolve(result.rows[0].router_id);
+                }
             });
         });
     }
     async deleteRouter(publicIp) {
+        if (!this.client) {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const deleteQuery = `DELETE FROM routers WHERE public_ip = $1`;
             this.client.query(deleteQuery, [publicIp], (error, result) => {
