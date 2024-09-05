@@ -4,6 +4,7 @@ import dbClient from "./components/DBClient";
 import logger from "./logger";
 import { RabbitMQClient } from "./components/RabbitMQClient";
 import createRouter from './Router';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -15,6 +16,18 @@ const secret = process.env.JWT_SECRET || 'fd5ac1609d0f2d6a5b7c91385c09669f36137c
 
 const app = express();
 const rabbitMQClient = new RabbitMQClient(rabbitURL, exchange);
+
+const corsOptions = {
+    origin: function (origin: string | undefined, callback: Function) {
+      if (origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) {
+        callback(null, true);  // Allow the request
+      } else {
+        callback(new Error('Not allowed by CORS'));  // Block the request
+      }
+    },
+  };
+  
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use('/api', createRouter(rabbitMQClient, secret));  

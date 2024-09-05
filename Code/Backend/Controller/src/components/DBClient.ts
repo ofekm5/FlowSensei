@@ -37,28 +37,7 @@ class DBClient {
         });
     }
 
-    public getServicesByRouterId(routerId: string) {
-        if (!this.client) {
-            return;
-        }
-    
-        return new Promise((resolve, reject) => {
-            const selectQuery = `
-                SELECT s.service_name, stp.priority
-                FROM service_to_priority stp
-                JOIN services s ON stp.service_id = s.service_id
-                WHERE stp.router_id = $1
-            `;
-            this.client!.query(selectQuery, [routerId], (error, result) => {
-                if (error) {
-                    logger.error(`An error has occurred: ${error}`);
-                    reject(error);
-                }
-                resolve(result.rows);
-            });
-        });
-    }    
-
+    // Create tables
     public async createTables() {
         if (!this.client) {
             return;
@@ -110,10 +89,11 @@ class DBClient {
                     });
                 });
             });
-        }); 
+        });
     }
 
-    public async insertNewRouter(publicIp: string){
+    // Router Operations
+    public async insertRouter(publicIp: string) {
         if (!this.client) {
             return;
         }
@@ -128,119 +108,7 @@ class DBClient {
                 resolve(result);
             });
         });
-
     }
-
-    public async isRouterExists(publicIp: string) {
-        if (!this.client) {
-            return;
-        }
-
-        const selectQuery = `SELECT 1 FROM routers WHERE public_ip = $1`;
-        return new Promise((resolve, reject) => {
-            this.client!.query(selectQuery, [publicIp], (err, result) => {
-                if (err) {
-                    logger.error(`An error has occurred: ${err}`);
-                    reject(err);
-                } else {
-                    resolve(result.rows.length > 0);
-                }
-            });
-        });
-    }
-
-    public async deleteService(routerId: string, serviceName: string) {
-        if (!this.client) {
-            return;
-        }
-
-        return new Promise((resolve, reject) => {
-            const deleteQuery = `DELETE FROM service_to_priority WHERE router_id = $1 AND service_id = $2`;
-            this.client!.query(deleteQuery, [routerId, serviceName], (error, result) => {
-                if (error) {
-                    logger.error(`An error has occurred: ${error}`);
-                    reject(error);
-                }
-                resolve(result);
-            });
-        });
-    }
-
-    public async updatePriority(routerId: string, serviceName: string, priority: number) {
-        if (!this.client) {
-            return;
-        }
-
-        return new Promise((resolve, reject) => {
-            const updateQuery = `UPDATE service_to_priority SET priority = $1 WHERE router_id = $2 AND service_id = $3`;
-            this.client!.query(updateQuery, [priority, routerId, serviceName], (error, result) => {
-                if (error) {
-                    logger.error(`An error has occurred: ${error}`);
-                    reject(error);
-                }
-                resolve(result);
-            });
-        });
-    }
-
-    public async insertNewService(routerId: string, services: {serviceName: string, priority: number}[]) {
-        if (!this.client) {
-            return;
-        }
-
-        return new Promise((resolve, reject) => {
-            for (let service of services) {
-                const insertQuery = `INSERT INTO service_to_priority(router_id, service_id, priority) VALUES ($1, $2, $3)`;
-                this.client!.query(insertQuery, [routerId, service.serviceName, service.priority], (error, result) => {
-                    if (error) {
-                        logger.error(`An error has occurred: ${error}`);
-                        reject(error);
-                    }
-                    resolve(result);
-                });
-            }
-        });
-    }
-
-    public async getServiceIdByName(serviceId: string) {
-        if (!this.client) {
-            return;
-        }
-
-        return new Promise((resolve, reject) => {
-            const selectQuery = `SELECT service_id FROM services WHERE service_name = $1`;
-            this.client!.query(selectQuery, [serviceId], (error, result) => {
-                if (error) {
-                    logger.error(`An error has occurred: ${error}`);
-                    reject(error);
-                }
-                resolve(result.rows[0]?.service_id);
-            });
-        });
-    }
-    
-    public async getRouterID(public_ip: string) {
-        if (!this.client) {
-            return;
-        }
-    
-        return new Promise((resolve, reject) => {
-            const selectQuery = `SELECT router_id FROM routers WHERE public_ip = $1`;
-            this.client!.query(selectQuery, [public_ip], (error, result) => {
-                if (error) {
-                    logger.error(`An error has occurred: ${error}`);
-                    reject(error);
-                }
-                if (result.rows.length === 0) {
-                    logger.error(`No router found with public IP: ${public_ip}`);
-                    reject(new Error(`No router found with public IP: ${public_ip}`));
-                } 
-                else {
-                    resolve(result.rows[0].router_id);
-                }
-            });
-        });
-    }    
 
     public async deleteRouter(publicIp: string) {
         if (!this.client) {
@@ -255,6 +123,132 @@ class DBClient {
                     reject(error);
                 }
                 resolve(result);
+            });
+        });
+    }
+
+    public async getRouter(publicIp: string) {
+        if (!this.client) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const selectQuery = `SELECT * FROM routers WHERE public_ip = $1`;
+            this.client!.query(selectQuery, [publicIp], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result.rows);
+            });
+        });
+    }
+
+    // Service Operations
+    public async insertService(serviceName: string) {
+        if (!this.client) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const insertQuery = `INSERT INTO services(service_name) VALUES ($1)`;
+            this.client!.query(insertQuery, [serviceName], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+    }
+
+    public async deleteService(serviceName: string) {
+        if (!this.client) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const deleteQuery = `DELETE FROM services WHERE service_name = $1`;
+            this.client!.query(deleteQuery, [serviceName], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+    }
+
+    public async getService(serviceName: string) {
+        if (!this.client) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const selectQuery = `SELECT * FROM services WHERE service_name = $1`;
+            this.client!.query(selectQuery, [serviceName], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result.rows);
+            });
+        });
+    }
+
+    // Service to Priority Operations
+    public async insertServicePriority(routerId: string, serviceId: string, priority: number) {
+        if (!this.client) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const insertQuery = `INSERT INTO service_to_priority(router_id, service_id, priority) VALUES ($1, $2, $3)`;
+            this.client!.query(insertQuery, [routerId, serviceId, priority], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+    }
+
+    public async deleteServicePriority(routerId: string, serviceId: string) {
+        if (!this.client) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const deleteQuery = `DELETE FROM service_to_priority WHERE router_id = $1 AND service_id = $2`;
+            this.client!.query(deleteQuery, [routerId, serviceId], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+    }
+
+    public async getRouterServices(routerId: string) {
+        if (!this.client) {
+            return;
+        }
+    
+        return new Promise((resolve, reject) => {
+            const selectQuery = `
+                SELECT s.service_name, stp.priority
+                FROM service_to_priority stp
+                JOIN services s ON stp.service_id = s.service_id
+                WHERE stp.router_id = $1
+            `;
+            this.client!.query(selectQuery, [routerId], (error, result) => {
+                if (error) {
+                    logger.error(`An error has occurred: ${error}`);
+                    reject(error);
+                }
+                resolve(result.rows);
             });
         });
     }

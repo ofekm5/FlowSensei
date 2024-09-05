@@ -36,6 +36,7 @@ const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
             const username = msg['username'];
             const password = msg['password'];
             const publicIp = msg['publicIp'];
+            let response: string;
 
             if (!msg || !username || !password || !publicIp) {
                 res.status(400).json({ error: 'invalid request' });
@@ -43,20 +44,47 @@ const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
                 return;
             }
 
-            const routerId: string = await dbClient.getRouterID(publicIp) as string;
+            const routerId = await dbClient.getRouter(publicIp);
 
             if (!routerId) {
-                await dbClient.insertNewRouter(publicIp);
+                await dbClient.insertRouter(publicIp);
                 logger.info(`New router with public IP ${publicIp} inserted`);
-            } 
-            else {
-                logger.info(`Router with public IP ${publicIp} already exists with ID ${routerId}`);
-            }
-            
-            logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId}`);
-            const response = await rabbitMQClient.login(username.toString(), password.toString(), publicIp.toString(), routerId.toString());
+                
+                const newRouterId = await dbClient.getRouter(publicIp);
+                
+                if (newRouterId) {
+                    const commonServices = [
+                        { serviceName: 'ServiceA', priority: 1 },
+                        { serviceName: 'ServiceB', priority: 2 },
+                        { serviceName: 'ServiceC', priority: 3 }
+                    ];
 
-            logger.info('message: ' + response);
+                    for (const service of commonServices) {
+                        let serviceId = await dbClient.getService(service.serviceName);
+                        if (!serviceId) {
+                            await dbClient.insertService(service.serviceName);
+                            serviceId = await dbClient.getService(service.serviceName);
+                        }
+
+                        if (serviceId) {
+                            await dbClient.insertServicePriority(newRouterId, serviceId, service.priority);
+                        }
+                    }
+
+                    response = await rabbitMQClient.login(username.toString(), password.toString(), publicIp.toString(), newRouterId.toString()).then(() => {
+                        rabbitMQClient.addNodeToQueueTree();
+                    });
+                } else {
+                    throw new Error('Failed to retrieve the new router ID after insertion');
+                }
+            } else {
+                logger.info(`Router with public IP ${publicIp} already exists with ID ${routerId}`);
+                response = await rabbitMQClient.login(username.toString(), password.toString(), publicIp.toString(), routerId.toString());
+            }
+
+
+            logger.info(`username: ${username}, password: ${password}, publicIp: ${publicIp}, routerID: ${routerId} logged in`);
+            
             if (response === 'success') {
                 const payload = { routerId: routerId };
                 const secret = process.env.ACCESS_TOKEN_SECRET;
@@ -92,7 +120,7 @@ const createRouter = (rabbitMQClient: RabbitMQClient, secret:string) => {
         }
     });
 
-    router.get('/services', authenticateToken, async (req: any, res: any) => {
+    router.get('/service-list', authenticateToken, async (req: any, res: any) => {
         try {
             const routerId = req.routerId;
             const services = await dbClient.getServicesByRouterId(routerId);
