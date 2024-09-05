@@ -1,35 +1,33 @@
-// src/controllers/routerController.ts
-
 import { Request, Response } from 'express';
-import { elasticsearchService } from '../services/elasticsearchService';
-import { kibanaService } from '../services/kibanaService';
+import { ElasticsearchService } from '../services/elasticsearchService';
+import { KibanaService } from '../services/kibanaService';
 import logger from '../logger';
-// import { Router } from '../models/router';
 
-export class RouterController {
-  static async addRouter(req: Request, res: Response): Promise<void> {
-    try {
-      logger.info('Adding router and setting up ELK for router:' + req.body);
-      const router: any = req.body;
-      logger.info('Router:' + router);
-      logger.info("setting base url for kibana and elasticsearch for router:" + router.ip);
-      await kibanaService.setBaseUrl(router.ip);
-      await elasticsearchService.setBaseUrl(router.ip);
-      logger.info("succeeded setting base url for kibana and elasticsearch for router:" + router.ip);
+// Controller to initialize router in Elasticsearch and Kibana
+export const initializeRouter = async (req: Request, res: Response) => {
+  const { routerIp } = req.params;  // Capture the router's public IP address
 
-      // Set up Elasticsearch index template for the new router
-      logger.info("creating index template for router:" + router.ip); 
-      await elasticsearchService.createIndexTemplate();
+  try {
+    // Initialize Elasticsearch service for the router IP
+    const elasticsearchService = new ElasticsearchService(routerIp);
+    const indexName = await elasticsearchService.createDynamicIndex();
+    logger.info(`Index ${indexName} created in Elasticsearch for router ${routerIp}`);
 
-      // Set up Kibana index pattern and visualizations for the new router
-      await kibanaService.createIndexPattern();
-      await kibanaService.createVisualization();
-      await kibanaService.createDashboard();
+    // Initialize Kibana service for the router IP
+    const kibanaService = new KibanaService(routerIp);
+    await kibanaService.createIndexPattern();  // Create Kibana index pattern
+    logger.info(`Index pattern created in Kibana for router ${routerIp}`);
 
-      res.status(201).json({ message: 'Router added and ELK set up successfully.' });
-    } catch (error) {
-      console.error('Error setting up ELK for router:', error);
-      res.status(500).json({ message: 'Error setting up ELK for router.' });
-    }
+    await kibanaService.createDashboard();  // Create Kibana dashboard
+    logger.info(`Dashboard created and updated in Kibana for router ${routerIp}`);
+
+    // Send success response
+    res.status(200).json({
+      message: `Router ${routerIp} initialized with Elasticsearch and Kibana`,
+      index: indexName,
+    });
+  } catch (error: any) {
+    logger.error(`Error initializing router ${routerIp}: ${error.message}`);
+    res.status(500).json({ error: `Failed to initialize router ${routerIp}` });
   }
-}
+};

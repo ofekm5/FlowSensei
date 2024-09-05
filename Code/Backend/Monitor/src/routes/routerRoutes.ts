@@ -1,10 +1,9 @@
-// src/routes/routerRoutes.ts
-
 import { Router } from 'express';
-import { RouterController } from '../controllers/routerController';
+import { initializeRouter } from '../controllers/routerController';
 
 const router = Router();
 
-router.post('/routers', RouterController.addRouter);
+// Add the initialize-router route
+router.post('/initialize-router/:routerIp', initializeRouter);
 
 export default router;
