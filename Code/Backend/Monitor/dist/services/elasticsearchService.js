@@ -4,60 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ElasticsearchService = void 0;
-const axios_1 = __importDefault(require("axios"));
+const elasticsearch_1 = require("@elastic/elasticsearch");
 const logger_1 = __importDefault(require("../logger"));
 class ElasticsearchService {
     constructor(ip) {
-        //this.ipv4Addresses = this.getIPv4Addresses();
-        //const ipAddress = this.ipv4Addresses.length > 0 ? this.ipv4Addresses[0] : 'localhost';
         this.ipv4Address = ip;
-        this.baseUrl = `http://localhost:9200`; // Ensure 'http://' is included
-        //this.ipv4Address = ipAddress;
-        logger_1.default.info(`Elasticsearch URL: ${this.baseUrl} and IP: ${this.ipv4Address}`);
+        this.client = new elasticsearch_1.Client({
+            node: 'http://localhost:9200',
+        });
+        logger_1.default.info(`Initialized Elasticsearch client for IP: ${this.ipv4Address}`);
     }
-    // private getIPv4Addresses(): string[] {
-    //   const networkInterfaces = os.networkInterfaces();
-    //   const ipv4Addresses: string[] = [];
-    //   for (const interfaces of Object.values(networkInterfaces)) {
-    //     const ifaceArray = interfaces as os.NetworkInterfaceInfo[];
-    //     for (const iface of ifaceArray) {
-    //       if (iface.family === 'IPv4' && !iface.internal) {
-    //         ipv4Addresses.push(iface.address);
-    //       }
-    //     }
-    //   }
-    //   return ipv4Addresses;
-    // }
-    async createDynamicIndex() {
-        const indexName = `netflow-${this.ipv4Address}-${new Date().toISOString().slice(0, 10)}`;
-        logger_1.default.info(`Creating new index: ${indexName}`);
-        const indexTemplate = {
-            settings: {
-                number_of_shards: 1,
-                number_of_replicas: 1,
-            },
-            mappings: {
-                properties: {
-                    srcAddress: { type: 'ip' },
-                    dstAddress: { type: 'ip' },
-                    srcPort: { type: 'integer' },
-                    dstPort: { type: 'integer' },
-                    protocol: { type: 'keyword' },
-                    service: { type: 'keyword' },
-                    router_ip: { type: 'ip' },
-                    "@timestamp": { type: 'date' },
-                },
-            },
-        };
-        logger_1.default.info("indexTemplate: " + JSON.stringify(indexTemplate));
-        logger_1.default.info("creating index " + this.baseUrl + "/" + indexName);
-        await axios_1.default.put(`${this.baseUrl}/${indexName}`, indexTemplate);
-        console.log(`Created new index: ${indexName}`);
-        return indexName;
-    }
+    // Create an index template to ensure consistent mappings
     async createIndexTemplate() {
+        const templateName = `netflow_template_${this.ipv4Address}`;
         const indexPattern = `netflow-${this.ipv4Address}-*`;
-        const template = {
+        const indexTemplate = {
             index_patterns: [indexPattern],
             settings: {
                 number_of_shards: 1,
@@ -76,7 +37,17 @@ class ElasticsearchService {
                 },
             },
         };
-        await axios_1.default.put(`${this.baseUrl}/_template/netflow_template_${this.ipv4Address}`, template);
+        try {
+            await this.client.indices.putTemplate({
+                name: templateName,
+                body: indexTemplate,
+            });
+            logger_1.default.info(`Created index template: ${templateName}`);
+        }
+        catch (error) {
+            logger_1.default.error(`Error creating index template: ${error.message}`);
+            throw new Error(`Failed to create index template: ${error.message}`);
+        }
     }
 }
 exports.ElasticsearchService = ElasticsearchService;
