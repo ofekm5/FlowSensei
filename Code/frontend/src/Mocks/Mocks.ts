@@ -3,13 +3,13 @@ import { CommunicationType } from "../models/CommunicationType.model";
 
 export const typesMock: PreferenceType[] = [
     {id:"111",title:"High Priority"}, 
-    // {id:"222",title:"Low Priority"},
 ]
 
 export const commMock: CommunicationType[] = [
-    {id:"1",columnId:"111",content:"YouTube"}, 
-    {id:"2",columnId:"111",content:"Streaming"}, 
-    {id:"3",columnId:"111",content:"Gaming"}, 
-    {id:"4",columnId:"111",content:"Downloads"}, 
-    {id:"5",columnId:"111",content:"E-Mail"},
+    {id:"2",columnId:"111",content:"Streaming", dstPort: 8080, protocol: 'UDP'}, 
+    {id:"3",columnId:"111",content:"Gaming", dstPort: 2045, protocol: 'UDP'}, 
+    {id:"4",columnId:"111",content:"Downloads", dstPort: 40, protocol: 'TCP'}, 
+    {id:"6",columnId:"111",content:"Zoom", dstPort: 8080, protocol: 'UDP'},
+    {id:"1",columnId:"111",content:"YouTube", dstPort: 80, protocol: 'TCP'}, 
+    {id:"5",columnId:"111",content:"E-Mail", dstPort: 24, protocol: 'SMTP'},
 ]

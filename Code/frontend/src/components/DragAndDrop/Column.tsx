@@ -11,8 +11,17 @@ interface IProps {
     column: PreferenceType;
     createTask: (columnId: string) => void;
     commTypes: CommunicationType[];
+    onEditClick: (serviceToEdit: CommunicationType) => void;
+    onDeleteClick: (serviceToDelete: CommunicationType) => void;
 }
-export const Column: FC<IProps> = ({column, createTask, commTypes}) => {
+
+export const Column: FC<IProps> = ({ 
+    column, 
+    createTask, 
+    commTypes, 
+    onEditClick,
+    onDeleteClick,
+}) => {
 
     const taskIds = commTypes.map(({id})=>id);
     const {setNodeRef, attributes, listeners, transform, transition} = useSortable({
@@ -35,8 +44,9 @@ export const Column: FC<IProps> = ({column, createTask, commTypes}) => {
         <Card elevation={4} sx={{ 
             backgroundColor: columnBGColor,
             width: '25%',
-            //height: '100%',
-            height: 'fit-content',
+            height: '100%',
+            minHeight: '650px',
+            //height: 'fit-content',
             borderRadius: '8px',
             display: 'flex',
             flexDirection: 'column'
@@ -69,8 +79,8 @@ export const Column: FC<IProps> = ({column, createTask, commTypes}) => {
                 }}
             >
                 <SortableContext items={taskIds}>
-                    {commTypes.map(type => (
-                        <CommunicationItem key={type.id} commType={type} />
+                    {commTypes.map(serivce => (
+                        <CommunicationItem key={serivce.id} commType={serivce} onEditClick={onEditClick} onDeleteClick={onDeleteClick} />
                     ))}
                 </SortableContext>
             </Box>
@@ -86,24 +96,6 @@ export const Column: FC<IProps> = ({column, createTask, commTypes}) => {
                     Low Priority
                 </Typography> 
             </Box>
-
-            {/* 
-            <Box>
-                <Button sx={{
-                    borderColor: borderColor,
-                    borderWidth: '2px',
-                    borderStyle: 'solid',
-                    borderRadius: '8px',
-                    padding: '16px', // 4 * 4px = 16px
-                    backgroundColor: mainBGColor,
-                    '&:hover': {
-                        color: '#F43F5E' // Equivalent to hover:text-rose-500
-                    }
-                }} onClick={() => createTask(column.id)}>
-                    Add Task
-                </Button>
-            </Box> 
-            */}
         </Card>
 
     );

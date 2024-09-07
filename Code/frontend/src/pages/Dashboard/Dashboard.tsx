@@ -15,6 +15,7 @@ import {
   LineChart,
   Line
 } from 'recharts';
+import axios from 'axios';
 
 const statisticsData = [
   { id: 1, title: 'Total Devices', value: 50, icon: <Avatar sx={{ bgcolor: 'primary.main' }}><BarChart /></Avatar> },
@@ -44,18 +45,18 @@ const pieData = [
 ];
 
 const lineData = [
-  { name: 'Jan', dataUsage: 10 },
-  { name: 'Feb', dataUsage: 12 },
-  { name: 'Mar', dataUsage: 15 },
-  { name: 'Apr', dataUsage: 20 },
-  { name: 'May', dataUsage: 18 },
-  { name: 'Jun', dataUsage: 22 },
-  { name: 'Jul', dataUsage: 25 },
-  { name: 'Aug', dataUsage: 30 },
-  { name: 'Sep', dataUsage: 28 },
-  { name: 'Oct', dataUsage: 35 },
-  { name: 'Nov', dataUsage: 38 },
-  { name: 'Dec', dataUsage: 40 }
+  { name: 'Jan', serviceA: 10, serviceB: 12, serviceC: 8, serviceD: 5 },
+  { name: 'Feb', serviceA: 15, serviceB: 18, serviceC: 12, serviceD: 8 },
+  { name: 'Mar', serviceA: 12, serviceB: 10, serviceC: 14, serviceD: 6 },
+  { name: 'Apr', serviceA: 18, serviceB: 20, serviceC: 16, serviceD: 10 },
+  { name: 'May', serviceA: 20, serviceB: 22, serviceC: 18, serviceD: 12 },
+  { name: 'Jun', serviceA: 16, serviceB: 19, serviceC: 17, serviceD: 14 },
+  { name: 'Jul', serviceA: 22, serviceB: 25, serviceC: 21, serviceD: 18 },
+  { name: 'Aug', serviceA: 24, serviceB: 28, serviceC: 19, serviceD: 20 },
+  { name: 'Sep', serviceA: 18, serviceB: 24, serviceC: 22, serviceD: 16 },
+  { name: 'Oct', serviceA: 20, serviceB: 21, serviceC: 24, serviceD: 19 },
+  { name: 'Nov', serviceA: 25, serviceB: 27, serviceC: 23, serviceD: 22 },
+  { name: 'Dec', serviceA: 28, serviceB: 30, serviceC: 26, serviceD: 24 }
 ];
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
@@ -76,7 +77,7 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 
 const Dashboard: FC = () => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column'}}>
+    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
       <Container sx={{ mt: 2 }}>
         <Grid container spacing={2}>
           {statisticsData.map((stat) => (
@@ -101,7 +102,7 @@ const Dashboard: FC = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="connections" fill="#8884d8" />
+                <Bar dataKey="connections" name="Total Connections" fill="#8884d8" />
               </ReBarChart>
             </Paper>
           </Grid>
@@ -122,10 +123,10 @@ const Dashboard: FC = () => {
                   dataKey="value"
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]}/>
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Legend 
+                <Legend
                   layout="horizontal"
                   align="center"
                   verticalAlign="bottom"
@@ -137,7 +138,7 @@ const Dashboard: FC = () => {
           <Grid item xs={12} md={4}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Monthly Data Usage (GB)
+                Monthly Data Usage By Service (GB)
               </Typography>
               <LineChart width={350} height={250} data={lineData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -145,7 +146,10 @@ const Dashboard: FC = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="dataUsage" stroke="#8884d8" />
+                <Line type="monotone" dataKey="serviceA" stroke="#8884d8" name="YouTube" />
+                <Line type="monotone" dataKey="serviceB" stroke="#82ca9d" name="Gaming" />
+                <Line type="monotone" dataKey="serviceC" stroke="#ffc658" name="Streaming" />
+                <Line type="monotone" dataKey="serviceD" stroke="#ff7300" name="Downloads" />
               </LineChart>
             </Paper>
           </Grid>
@@ -156,4 +160,3 @@ const Dashboard: FC = () => {
 };
 
 export default Dashboard;
-

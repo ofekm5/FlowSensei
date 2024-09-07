@@ -7,6 +7,7 @@ import ExitToAppRoundedIcon from '@mui/icons-material/ExitToAppRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import LowPriorityIcon from '@mui/icons-material/LowPriority';
 import RepartitionRoundedIcon from '@mui/icons-material/RepartitionRounded';
+import FlowSesei from '../../assest/FlowSensei.png';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -18,16 +19,21 @@ const Navbar: React.FC = () => {
     navigate('/');
   };
 
+  //const chosenColor = '#1BB29C';
   const chosenColor = '#6082B6';
 
   return (
+    // <AppBar position="static" sx={{backgroundColor: '#23dbb6'}}>
     <AppBar position="static" sx={{backgroundColor: '#6495ED'}}>
-      <Toolbar sx={{gap: 1}}>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          FlowSensei
-        </Typography>
+      <Toolbar sx={{display: 'flex', justifyContent: 'space-between'}}>
+        <Box display={'flex'} alignItems={'center'} justifyContent={'center'} gap={2}>
+          <img width={40} height={40} src={FlowSesei} />
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            FlowSensei
+          </Typography>
+        </Box>
         {isAuthenticated && (
-          <>
+          <Box display={'flex'} alignItems={'center'} justifyContent={'center'}>
             <Box display={'flex'} alignItems={'center'} sx={{borderRadius: '50%', backgroundColor: pathname === "/dashboard" ? chosenColor : ''}}>
               <Tooltip title="dashboard">
                 <IconButton aria-label="dashboard" component={Link} to="/dashboard" size='large'>
@@ -53,7 +59,7 @@ const Navbar: React.FC = () => {
             {/* <Button color="inherit" onClick={handleLogout}>
               Logout
             </Button> */}
-          </>
+          </Box>
         )}
       </Toolbar>
     </AppBar>

@@ -1,12 +1,13 @@
-import { FC, useState } from 'react'
+import { Dispatch, FC, SetStateAction, useState } from 'react'
 import { Column } from './Column';
-import { DndContext, DragOverEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
+import { DndContext, DragOverEvent, DragOverlay, DragStartEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove } from '@dnd-kit/sortable';
 import { CommunicationItem } from './CommunicationItem';
 import { CommunicationType } from '../../models/CommunicationType.model';
 import { PreferenceType } from '../../models/PreferenceType.model';
 import { createPortal } from 'react-dom';
-import { Box, Button } from '@mui/material';
+import { Box } from '@mui/material';
+import { SmartPointerSensor } from './SmartPointerSensor';
 
 const generateId = () => {
     const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -23,35 +24,32 @@ const generateId = () => {
 
 interface IProps {
     prefTypes: PreferenceType[];
-    commTypes: CommunicationType[];
+    services: CommunicationType[];
+    setServices: Dispatch<SetStateAction<CommunicationType[]>>
+    onEditClick: (serviceToDelete: CommunicationType) => void;
+    onDeleteClick: (serviceToDelete: CommunicationType) => void;
 }
 
 export const KanbanBoard: FC<IProps> = ({
-    commTypes,
+    services,
     prefTypes,
+    setServices,
+    onEditClick,
+    onDeleteClick,
 }) => 
 {
     const [columns,setColumns] = useState<PreferenceType[]>([...prefTypes])
 
-    const [initTasks] = useState<CommunicationType[]>([...commTypes]);
-
-    const [tasks,setTasks] = useState<CommunicationType[]>([...commTypes]);
-
     const [activeTask, setActiveTask] = useState<CommunicationType>();
 
-    const handleReset = () => {
-        setTasks([...initTasks]);
-    }
-
-    const handleApplyClick = () => {
-        alert('Updated Preferences Successfully'); 
-        console.log("comms:", tasks);
-    }
+    const pointerSensor = useSensor(SmartPointerSensor);
+  
+    const sensors = useSensors(pointerSensor);
 
     const createTask = (columnId: string) =>
     {
-        const newTask = {id:generateId(),columnId,content:`Task ${tasks.length + 1}`}
-        setTasks(prev => [...prev, newTask]);
+        // const newTask = {id:generateId(),columnId,content:`Task ${services.length + 1}`}
+        // setServices(prev => [...prev, newTask]);
     }
 
     const columnIds = columns.map(({id})=>id);
@@ -87,23 +85,23 @@ export const KanbanBoard: FC<IProps> = ({
         //We check for 2 cases
         // I am dropping a task over another task
         if(isActiveATask && isOverATask) {
-            setTasks((task) =>
+            setServices((serivce) =>
             {
                 // Finding indexes here as we need to shuffle them
                 // activeId is same because we always give draggable id remember?
-                const activeIndex = task.findIndex((t)=> t.id === activeId);
-                const overIndex = task.findIndex((t) => t.id === overId);
+                const activeIndex = serivce.findIndex((t)=> t.id === activeId);
+                const overIndex = serivce.findIndex((t) => t.id === overId);
 
-                // If we drop the task on a task on different column, just gotta check overId
+                // If we drop the serivce on a serivce on different column, just gotta check overId
                 // We can also 
-                if(task[activeIndex].columnId!== task[overIndex].columnId)
+                if(serivce[activeIndex].columnId!== serivce[overIndex].columnId)
                 {
-                    task[activeIndex].columnId = task[overIndex].columnId;
+                    serivce[activeIndex].columnId = serivce[overIndex].columnId;
                 }
 
                 // This is a smooth inbuilt function which switches positions of
                 // 2 elements in an array based on index given.
-                return arrayMove(task, activeIndex, overIndex);
+                return arrayMove(serivce, activeIndex, overIndex);
             })
         }
 
@@ -111,39 +109,35 @@ export const KanbanBoard: FC<IProps> = ({
 
         const isOverAColumn = over.data.current?.type === "Column";
         if(isActiveATask && isOverAColumn) {
-            setTasks((tasks)=>{
-                const activeIndex = tasks.findIndex((t)=>t.id === activeId);
+            setServices((currSerivces) => {
+                const activeIndex = currSerivces.findIndex((t)=>t.id === activeId);
 
-                tasks[activeIndex].columnId = overId as string;
+                currSerivces[activeIndex].columnId = overId as string;
 
                 // The reason we are using arrayMove with same 2 indexes is bc we get new array
-                return arrayMove(tasks, activeIndex, activeIndex)
+                return arrayMove(currSerivces, activeIndex, activeIndex)
             })
         }
     }
 
     return (
-        <Box height={'100%'} display={'flex'} flexDirection={'column'} >
-            <DndContext onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={()=>setActiveTask(undefined)}>
+        <Box height={'81vh'} width={'100%'} display={'flex'} flexDirection={'column'}>
+            <DndContext sensors={sensors} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={()=>setActiveTask(undefined)}>
                 <Box display={'flex'} justifyContent={'center'} height={'100%'} gap={4}>
                     <SortableContext items={columnIds}>
                     {columns.map(col=>(
-                        <Column column={col} key={col.id} createTask={createTask}
-                            commTypes={tasks.filter(task=>task.columnId === col.id)}
+                        <Column column={col} key={col.id} onEditClick={onEditClick}  onDeleteClick={onDeleteClick} createTask={createTask}
+                            commTypes={services.filter(service=> service.columnId === col.id)}
                         />
                     ))}
                     </SortableContext>
                 </Box>
                 {createPortal(<DragOverlay>
                     {activeTask && (
-                        <CommunicationItem commType={activeTask}/>
+                        <CommunicationItem commType={activeTask} onEditClick={onEditClick} onDeleteClick={onDeleteClick}/>
                     )}
                 </DragOverlay>, document.body)}
             </DndContext>
-            <Box display={'flex'} gap={1} justifyContent={'flex-end'} width={'100%'}>
-                <Button variant='contained' onClick={handleReset}>Reset</Button>
-                <Button variant='contained' onClick={handleApplyClick}>Apply</Button>
-            </Box>
         </Box>
     )
 
