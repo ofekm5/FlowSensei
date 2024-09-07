@@ -33,7 +33,7 @@ export class ElasticsearchService {
   // }
 
   public async createDynamicIndex(): Promise<string> {
-    const indexName = `netflow-${this.ipv4Address}-${new Date().toISOString().slice(0, 10)}`;
+    const indexName = `netflow-${this.ipv4Address}-${new Date().toISOString().replace(/[:.]/g, '-')}`.toLowerCase();
     logger.info(`Creating new index: ${indexName}`);
     
     const indexTemplate = {

@@ -29,7 +29,7 @@ class ElasticsearchService {
     //   return ipv4Addresses;
     // }
     async createDynamicIndex() {
-        const indexName = `netflow-${this.ipv4Address}-${new Date().toISOString().slice(0, 10)}`;
+        const indexName = `netflow-${this.ipv4Address}-${new Date().toISOString().replace(/[:.]/g, '-')}`.toLowerCase();
         logger_1.default.info(`Creating new index: ${indexName}`);
         const indexTemplate = {
             settings: {

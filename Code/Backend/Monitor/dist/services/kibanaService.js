@@ -258,11 +258,11 @@ class KibanaService {
     async createDashboard() {
         try {
             logger_1.default.info('Creating dashboard');
-            // Capture the visualization IDs after creation
-            const protocolDistId = await this.createVisualization();
-            const topSourceId = await this.createTopSourceAddressesVisualization();
-            const topDestId = await this.createTopDestinationAddressesVisualization();
-            const trafficOverTimeId = await this.createTrafficOverTimeVisualization();
+            // Call the visualization creation methods
+            await this.createVisualization(); // Protocol Distribution
+            await this.createTopSourceAddressesVisualization(); // Top Source Addresses
+            await this.createTopDestinationAddressesVisualization(); // Top Destination Addresses
+            await this.createTrafficOverTimeVisualization(); // Traffic Over Time
             // Now proceed with creating the dashboard
             const dashboardData = {
                 attributes: {
@@ -278,7 +278,7 @@ class KibanaService {
             });
             const dashboardId = dashboardResponse.data.id;
             logger_1.default.info(`Dashboard created with ID: ${dashboardId}`);
-            // Add visualizations to the dashboard using the correct IDs
+            // Add visualizations to the dashboard
             const panelData = {
                 attributes: {
                     panelsJSON: JSON.stringify([
@@ -287,34 +287,33 @@ class KibanaService {
                             gridData: { x: 0, y: 0, w: 24, h: 15, i: '1' },
                             version: '7.9.3',
                             type: 'visualization',
-                            id: protocolDistId, // Use the correct ID here
+                            id: `Protocol Distribution - ${this.ipv4Address}`,
                         },
                         {
                             panelIndex: '2',
                             gridData: { x: 0, y: 15, w: 24, h: 15, i: '2' },
                             version: '7.9.3',
                             type: 'visualization',
-                            id: topSourceId, // Use the correct ID here
+                            id: `Top Source Addresses - ${this.ipv4Address}`,
                         },
                         {
                             panelIndex: '3',
                             gridData: { x: 0, y: 30, w: 24, h: 15, i: '3' },
                             version: '7.9.3',
                             type: 'visualization',
-                            id: topDestId, // Use the correct ID here
+                            id: `Top Destination Addresses - ${this.ipv4Address}`,
                         },
                         {
                             panelIndex: '4',
                             gridData: { x: 0, y: 45, w: 24, h: 15, i: '4' },
                             version: '7.9.3',
                             type: 'visualization',
-                            id: trafficOverTimeId, // Use the correct ID here
+                            id: `Traffic Over Time - ${this.ipv4Address}`,
                         },
                     ]),
                 },
             };
-            // Updating dashboard
-            await axios_1.default.put(`${this.baseUrl}/api/saved_objects/dashboard/${dashboardId}/_update`, panelData, {
+            await axios_1.default.put(`${this.baseUrl}/api/saved_objects/dashboard/${dashboardId}`, panelData, {
                 headers: { 'kbn-xsrf': 'true' },
             });
             logger_1.default.info('Dashboard updated successfully');
