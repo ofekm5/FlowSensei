@@ -5,17 +5,16 @@ export class ElasticsearchService {
   private client: Client;
   private ipv4Address: string;
 
-  constructor(ip: string) {
+  constructor(ip: string, serviceUrl: string) {
     this.ipv4Address = ip;
 
     this.client = new Client({
-      node: 'http://localhost:9200',
+      node: serviceUrl,
     });
 
     logger.info(`Initialized Elasticsearch client for IP: ${this.ipv4Address}`);
   }
 
-  // Create an index template to ensure consistent mappings
   public async createIndexTemplate(): Promise<void> {
     const templateName = `netflow_template_${this.ipv4Address}`;
     const indexPattern = `netflow-${this.ipv4Address}-*`;

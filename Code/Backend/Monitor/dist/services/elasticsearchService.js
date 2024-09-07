@@ -7,14 +7,13 @@ exports.ElasticsearchService = void 0;
 const elasticsearch_1 = require("@elastic/elasticsearch");
 const logger_1 = __importDefault(require("../logger"));
 class ElasticsearchService {
-    constructor(ip) {
+    constructor(ip, serviceUrl) {
         this.ipv4Address = ip;
         this.client = new elasticsearch_1.Client({
-            node: 'http://localhost:9200',
+            node: serviceUrl,
         });
         logger_1.default.info(`Initialized Elasticsearch client for IP: ${this.ipv4Address}`);
     }
-    // Create an index template to ensure consistent mappings
     async createIndexTemplate() {
         const templateName = `netflow_template_${this.ipv4Address}`;
         const indexPattern = `netflow-${this.ipv4Address}-*`;

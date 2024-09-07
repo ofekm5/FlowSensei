@@ -3,36 +3,32 @@ import { ElasticsearchService } from '../services/elasticsearchService';
 import { KibanaService } from '../services/kibanaService';
 import logger from '../logger';
 
-// Controller to initialize router in Elasticsearch and Kibana
-export const initializeRouter = async (req: Request, res: Response) => {
-  const { routerIp } = req.params;  // Capture the router's public IP address
+export const initializeELKForRouter = async (req: Request, res: Response) => {
+  const { routerIp } = req.params;
+  const elasticsearchServiceURL = `http://localhost:9200`;
+  const kibanaServiceURL = `http://localhost:5601`;  
 
   try {
-    // Step 1: Initialize Elasticsearch service for the router IP and create the index template
-    const elasticsearchService = new ElasticsearchService(routerIp);
-    await elasticsearchService.createIndexTemplate();  // Create index template to ensure consistent mappings
+    const elasticsearchService = new ElasticsearchService(routerIp, elasticsearchServiceURL);
+    await elasticsearchService.createIndexTemplate();  
     logger.info(`Index template created in Elasticsearch for router ${routerIp}`);
 
-    // Step 2: Initialize Kibana service for the router IP and create the Kibana index pattern
-    const kibanaService = new KibanaService(routerIp);
-    await kibanaService.createIndexPattern();  // Create Kibana index pattern
+    const kibanaService = new KibanaService(routerIp, kibanaServiceURL);
+    await kibanaService.createIndexPattern();  
     logger.info(`Index pattern created in Kibana for router ${routerIp}`);
 
-    // Step 3: Create the Kibana dashboard
-    await kibanaService.createDashboard();  // Create Kibana dashboard
-    logger.info(`Dashboard created and updated in Kibana for router ${routerIp}`);
+    const filePath = './KibanaSetup.ndjson'; 
+    const dashboardId = await kibanaService.importDashboard(filePath);  
+    logger.info('Pre-created Kibana dashboard imported successfully.');
+    logger.info(`reactjs link to paste in iframe: ${kibanaServiceURL}/app/kibana#/dashboard/${dashboardId}?embed=true&_g=()`);
+    const iframeUrl = `${kibanaServiceURL}/app/kibana#/dashboard/${dashboardId}?embed=true&_g=()`;  
 
-    // Step 4: Import pre-created Kibana panels (e.g., used ports graph) from .ndjson file
-    const filePath = './panels/usedports.ndjson';  // Adjust the file path to where the ndjson file is stored
-    await kibanaService.importSavedObjects(filePath);  // Import pre-created Kibana panel
-    logger.info('Pre-created Kibana panel imported successfully.');
-
-    // Send success response after everything has been initialized and imported
-    res.status(200).json({
+    return res.status(200).json({
       message: `Router ${routerIp} initialized with Elasticsearch and Kibana, and panel imported.`,
+      iframeUrl: iframeUrl, 
     });
-  } catch (error: any) {
-    // Handle any errors that occur during the initialization process
+  } 
+  catch (error: any) {
     logger.error(`Error initializing router ${routerIp}: ${error.message}`);
     res.status(500).json({ error: `Failed to initialize router ${routerIp}` });
   }
