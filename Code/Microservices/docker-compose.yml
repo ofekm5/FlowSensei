@@ -1,5 +1,47 @@
 version: '3.7'
 services:
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+  #   container_name: elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  #     - xpack.security.enabled=false  # Optional for disabling security
+  #   ports:
+  #     - "9200:9200"
+  #   volumes:
+  #     - esdata:/usr/share/elasticsearch/data
+  #   networks:
+  #     - elk
+
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:7.10.1
+  #   container_name: logstash
+  #   ports:
+  #     - "5044:5044"
+  #     - "9600:9600"
+  #     - "2055:2055/udp"
+  #   volumes:
+  #     - ./logstash/pipeline:/usr/share/logstash/pipeline
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - elk
+
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:7.10.1
+  #   container_name: kibana
+  #   environment:
+  #     - server.cors.enabled=true
+  #     - server.cors.allowOrigin="*"
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #   ports:
+  #     - "5601:5601"
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - elk
+
   postgres:
     image: postgres:14  
     container_name: postgres
@@ -64,9 +106,35 @@ services:
       - rabbitmq
     ports:
       - "3000:3000"
+  
+  # monitor:
+  #   build:
+  #     context: ./Monitor 
+  #   container_name: monitor
+  #   environment:
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #     - KIBANA_URL=http://kibana:5601
+  #     - PORT=7000
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+  #     logstash:
+  #       condition: service_healthy
+  #     kibana:
+  #       condition: service_healthy
+  #   ports:
+  #     - "7000:7000"
+  #   networks:
+  #     - elk_network
 
 volumes:
   postgres_data:
     driver: local
+  esdata:
+    driver: local
   rabbitmq_data:
     driver: local
+
+networks:
+  elk:
+    driver: bridge
