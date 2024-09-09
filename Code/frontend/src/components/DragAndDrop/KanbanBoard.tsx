@@ -2,8 +2,8 @@ import { Dispatch, FC, SetStateAction, useState } from 'react'
 import { Column } from './Column';
 import { DndContext, DragOverEvent, DragOverlay, DragStartEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove } from '@dnd-kit/sortable';
-import { CommunicationItem } from './CommunicationItem';
-import { CommunicationType } from '../../models/CommunicationType.model';
+import { ServiceItem } from './ServiceItem';
+import { Service } from '../../models/Serivce.model';
 import { PreferenceType } from '../../models/PreferenceType.model';
 import { createPortal } from 'react-dom';
 import { Box } from '@mui/material';
@@ -24,10 +24,10 @@ const generateId = () => {
 
 interface IProps {
     prefTypes: PreferenceType[];
-    services: CommunicationType[];
-    setServices: Dispatch<SetStateAction<CommunicationType[]>>
-    onEditClick: (serviceToDelete: CommunicationType) => void;
-    onDeleteClick: (serviceToDelete: CommunicationType) => void;
+    services: Service[];
+    setServices: Dispatch<SetStateAction<Service[]>>
+    onEditClick: (serviceToDelete: Service) => void;
+    onDeleteClick: (serviceToDelete: Service) => void;
 }
 
 export const KanbanBoard: FC<IProps> = ({
@@ -40,7 +40,7 @@ export const KanbanBoard: FC<IProps> = ({
 {
     const [columns,setColumns] = useState<PreferenceType[]>([...prefTypes])
 
-    const [activeTask, setActiveTask] = useState<CommunicationType>();
+    const [activeTask, setActiveTask] = useState<Service>();
 
     const pointerSensor = useSensor(SmartPointerSensor);
   
@@ -126,15 +126,15 @@ export const KanbanBoard: FC<IProps> = ({
                 <Box display={'flex'} justifyContent={'center'} height={'100%'} gap={4}>
                     <SortableContext items={columnIds}>
                     {columns.map(col=>(
-                        <Column column={col} key={col.id} onEditClick={onEditClick}  onDeleteClick={onDeleteClick} createTask={createTask}
-                            commTypes={services.filter(service=> service.columnId === col.id)}
+                        <Column column={col} key={col.id} onEditClick={onEditClick}  onDeleteClick={onDeleteClick}
+                            services={services.filter(service=> service.columnId === col.id)}
                         />
                     ))}
                     </SortableContext>
                 </Box>
                 {createPortal(<DragOverlay>
                     {activeTask && (
-                        <CommunicationItem commType={activeTask} onEditClick={onEditClick} onDeleteClick={onDeleteClick}/>
+                        <ServiceItem commType={activeTask} onEditClick={onEditClick} onDeleteClick={onDeleteClick}/>
                     )}
                 </DragOverlay>, document.body)}
             </DndContext>

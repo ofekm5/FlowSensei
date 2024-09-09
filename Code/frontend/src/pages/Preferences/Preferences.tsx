@@ -1,26 +1,50 @@
-import { FC, SyntheticEvent, useState } from 'react';
+import { FC, SyntheticEvent, useEffect, useState } from 'react';
 import { Box, Paper, SnackbarCloseReason } from '@mui/material';
 import { KanbanBoard } from '../../components/DragAndDrop/KanbanBoard';
-import { typesMock, commMock } from '../../Mocks/Mocks';
+import { typesMock } from '../../Mocks/Mocks';
 import { Button } from '../../components/Button/Button';
-import { CommunicationType } from '../../models/CommunicationType.model';
+import { Service } from '../../models/Serivce.model';
 import { DeleteServiceDialog } from '../../components/Dialogs/DeleteServiceDialog';
 import { EditServiceDialog } from '../../components/Dialogs/EditServiceDialog';
 import { CreateServiceDialog } from '../../components/Dialogs/CreateServiceDialog';
 import { HelpDialog } from '../../components/Dialogs/HelpDialog';
 import { CustomizedSnackbars } from '../../components/Snackbar/Snackbar';
+import { useFetchServices } from '../../hooks/useFetchServices';
+import { useCreateService } from '../../hooks/useCreateService';
+import { useUpdateService } from '../../hooks/useUpdateService';
+import { useDeleteService } from '../../hooks/useDeleteService';
+import { useUpdateServicesQueue } from '../../hooks/useUpdateServicesQueue';
 
-const Preferences: FC = () => {
-  const [initServices] = useState<CommunicationType[]>([...commMock]);
-  const [selectedService, setSelectedService] = useState<CommunicationType>();
-  const [services, setServices] = useState<CommunicationType[]>([...commMock]);
+interface IProps {
+  servicesFromDB: Service[];
+}
+
+const Preferences: FC<IProps> = ({
+  servicesFromDB,
+}) => {
+  const { createService } = useCreateService();
+  const { updateService } = useUpdateService();
+  const { deleteService } = useDeleteService();
+  const { updateServicesQueue } = useUpdateServicesQueue();
+  const [selectedService, setSelectedService] = useState<Service>();
+  const [services, setServices] = useState<Service[]>([]);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [openHelpDialog, setOpenHelpDialog] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarText, setSnackbarText] = useState('');
+
+  useEffect(() => {
+    if(servicesFromDB){
+      const fixedServices = servicesFromDB.map(service => ({...service, columnId:"111"}))
+      setServices([...fixedServices]);
+    }
+  }, [servicesFromDB])
 
   const handleApplyClick = () => {
+    updateServicesQueue(services);
+    setSnackbarText("Updated Priorities Successfully!");
     setOpenSnackbar(true);
   };
 
@@ -51,12 +75,12 @@ const Preferences: FC = () => {
     setOpenHelpDialog(false);
   }
 
-  const handleDeleteClick = (serviceToDelete: CommunicationType) => {
+  const handleDeleteClick = (serviceToDelete: Service) => {
     setSelectedService(serviceToDelete);
     setOpenDeleteDialog(true);
   }
 
-  const handleEditClick = (serviceToEdit: CommunicationType) => {
+  const handleEditClick = (serviceToEdit: Service) => {
     setSelectedService(serviceToEdit);
     setOpenEditDialog(true);
   }
@@ -69,38 +93,51 @@ const Preferences: FC = () => {
     setOpenHelpDialog(true);
   }
 
-  const deleteService = () => {
+  const handleDeleteService = async () => {
+    // if(selectedService){
+    //   const updatedServices = services.filter(service => service.content !== selectedService.content);
+    //   setServices([...updatedServices])
+    // }
     if(selectedService){
-      const updatedServices = services.filter(service => service.content !== selectedService.content);
-      setServices([...updatedServices])
+      await deleteService(selectedService)
     }
 
     handleCloseDeleteDialog();
+    setSnackbarText("Deleted Service Successfully!");
+    setOpenSnackbar(true);
   }
 
-  const editService = (updatedService: CommunicationType) => {
+  const editService = async (updatedService: Service) => {
+    // if(selectedService){
+    //   const updatedServices = services.map(service => {
+    //     if(service.id === updatedService.id){
+    //       return updatedService;
+    //     }
+
+    //     return service;
+    //   });
+
+    //   setServices([...updatedServices]);
+    // }
+
     if(selectedService){
-      const updatedServices = services.map(service => {
-        if(service.id === updatedService.id){
-          return updatedService;
-        }
-
-        return service;
-      });
-
-      setServices([...updatedServices]);
+      await updateService(updatedService);
     }
 
     handleCloseEditDialog();
+    setSnackbarText("Updated Service Successfully!");
+    setOpenSnackbar(true);
   }
 
-  const createService = (newServiceData: Partial<CommunicationType>) => {
-    console.log("newService: ", newServiceData);
+  const handleCreateService = async (newServiceData: Partial<Service>) => {
+    await createService(newServiceData);
     handleCloseCreateDialog();
+    setSnackbarText("Created Service Successfully!");
+    setOpenSnackbar(true);
   }
 
   const handleReset = () => {
-    setServices([...initServices]);
+    setServices([...servicesFromDB]);
   }
 
   return (
@@ -108,7 +145,7 @@ const Preferences: FC = () => {
       <Box sx={{ display: 'flex', height: '81vh', padding: 2 }}>
         <Paper elevation={3} sx={{ padding: 2, marginRight: 2, minWidth: '220px', height: 'fit-content', backgroundColor: 'gainsboro' }}>
           <Box display={'flex'} flexDirection={'column'} gap={2}>
-            <Button variant='contained' onClick={handleCreateClick}>Add Service</Button>
+            <Button variant='contained' onClick={handleCreateClick} disabled={services.length >= 8}>Add Service</Button>
             <Button variant='contained' onClick={handleApplyClick}>Apply Changes</Button>
             <Button variant='contained' onClick={handleReset}>Reset</Button>
             <Button variant='contained' onClick={handleHelpClick}>Help</Button>         
@@ -129,7 +166,7 @@ const Preferences: FC = () => {
         <DeleteServiceDialog 
           isOpen={openDeleteDialog}
           onClose={handleCloseDeleteDialog}
-          onDelete={deleteService}
+          onDelete={handleDeleteService}
           serivceToDelete={selectedService.content}
         />
       }
@@ -147,7 +184,7 @@ const Preferences: FC = () => {
         <CreateServiceDialog 
           isOpen={openCreateDialog}
           onClose={handleCloseCreateDialog}
-          onCreate={createService}
+          onCreate={handleCreateService}
         />
       }
 
@@ -161,6 +198,7 @@ const Preferences: FC = () => {
       <CustomizedSnackbars 
         isOpen={openSnackbar}
         onClose={handleCloseSnackbar}
+        text={snackbarText}
       />
     </>
   );

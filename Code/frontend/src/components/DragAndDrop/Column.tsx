@@ -1,29 +1,27 @@
 import { FC } from 'react'
-import { CommunicationItem } from './CommunicationItem'
+import { ServiceItem } from './ServiceItem'
 import { SortableContext } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import {CSS} from "@dnd-kit/utilities";
 import { PreferenceType } from '../../models/PreferenceType.model';
-import { CommunicationType } from '../../models/CommunicationType.model';
+import { Service } from '../../models/Serivce.model';
 import { Box, Card, Typography } from '@mui/material';
 
 interface IProps {
     column: PreferenceType;
-    createTask: (columnId: string) => void;
-    commTypes: CommunicationType[];
-    onEditClick: (serviceToEdit: CommunicationType) => void;
-    onDeleteClick: (serviceToDelete: CommunicationType) => void;
+    services: Service[];
+    onEditClick: (serviceToEdit: Service) => void;
+    onDeleteClick: (serviceToDelete: Service) => void;
 }
 
 export const Column: FC<IProps> = ({ 
     column, 
-    createTask, 
-    commTypes, 
+    services, 
     onEditClick,
     onDeleteClick,
 }) => {
 
-    const taskIds = commTypes.map(({id})=>id);
+    const taskIds = services.map(({id})=>id);
     const {setNodeRef, attributes, listeners, transform, transition} = useSortable({
         id:column.id,
         data: {
@@ -79,8 +77,8 @@ export const Column: FC<IProps> = ({
                 }}
             >
                 <SortableContext items={taskIds}>
-                    {commTypes.map(serivce => (
-                        <CommunicationItem key={serivce.id} commType={serivce} onEditClick={onEditClick} onDeleteClick={onDeleteClick} />
+                    {services.map(serivce => (
+                        <ServiceItem key={serivce.id} commType={serivce} onEditClick={onEditClick} onDeleteClick={onDeleteClick} />
                     ))}
                 </SortableContext>
             </Box>

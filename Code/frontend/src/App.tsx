@@ -7,6 +7,7 @@ import Navbar from './components/Navbar/Navbar';
 import NotFound from './pages/NotFound/NotFound';
 import Preferences from './pages/Preferences/Preferences';
 import Dashboard from './pages/Dashboard/Dashboard';
+import { PriorityPageContainer } from './pages/Preferences/PriorityPageContainer';
 
 const App: FC = () => {
   return (
@@ -16,7 +17,7 @@ const App: FC = () => {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/priorities" element={<PrivateRoute><Preferences /></PrivateRoute>} />
+          <Route path="/priorities" element={<PrivateRoute><PriorityPageContainer /></PrivateRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

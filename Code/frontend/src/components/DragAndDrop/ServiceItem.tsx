@@ -1,18 +1,18 @@
 import { FC, useState } from 'react';
 import { useSortable } from "@dnd-kit/sortable";
-import { CommunicationType } from '../../models/CommunicationType.model';
+import { Service } from '../../models/Serivce.model';
 import { Paper, Typography, IconButton, Menu, MenuItem, ListItemIcon } from '@mui/material';
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
 interface IProps {
-    commType: CommunicationType;
-    onEditClick: (serviceToEdit: CommunicationType) => void;
-    onDeleteClick: (serviceToDelete: CommunicationType) => void;
+    commType: Service;
+    onEditClick: (serviceToEdit: Service) => void;
+    onDeleteClick: (serviceToDelete: Service) => void;
 }
 
-export const CommunicationItem: FC<IProps> = ({ commType, onEditClick, onDeleteClick }) => {
+export const ServiceItem: FC<IProps> = ({ commType, onEditClick, onDeleteClick }) => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
 

@@ -4,7 +4,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { CommunicationType } from '../../models/CommunicationType.model';
+import { Service } from '../../models/Serivce.model';
 import { Box, Paper, styled } from '@mui/material';
 import { TextField } from '../TextField/TextField';
 
@@ -18,7 +18,7 @@ const ServiceFormPaper = styled(Paper)(({ theme }) => ({
 interface IProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (newServiceData: Partial<CommunicationType>) => void;
+    onCreate: (newServiceData: Partial<Service>) => void;
 }
 
 export const CreateServiceDialog: FC<IProps> = ({
@@ -33,7 +33,7 @@ export const CreateServiceDialog: FC<IProps> = ({
     const [destAddr, setDestAddr] = useState<string>();
     const [srcPort, setSrcPort] = useState<number>();
 
-    const newServiceData: Partial<CommunicationType> = {
+    const newServiceData: Partial<Service> = {
         content: name, 
         protocol,
         dstPort: destPort, 
@@ -56,11 +56,6 @@ export const CreateServiceDialog: FC<IProps> = ({
     fullWidth
     aria-labelledby="alert-dialog-title"
     aria-describedby="alert-dialog-description"
-    PaperProps={{
-        style: {
-            //backgroundColor: 'gainsboro',
-        },
-    }}
     >
         <DialogTitle id="alert-dialog-title" sx={{fontSize: 32, fontWeight: '200', paddingTop: '16px'}}>
             {`Create Service`}

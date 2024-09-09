@@ -1,11 +1,11 @@
 import { PreferenceType } from "../models/PreferenceType.model";
-import { CommunicationType } from "../models/CommunicationType.model";
+import { Service } from "../models/Serivce.model";
 
 export const typesMock: PreferenceType[] = [
     {id:"111",title:"High Priority"}, 
 ]
 
-export const commMock: CommunicationType[] = [
+export const commMock: Service[] = [
     {id:"2",columnId:"111",content:"Streaming", dstPort: 8080, protocol: 'UDP'}, 
     {id:"3",columnId:"111",content:"Gaming", dstPort: 2045, protocol: 'UDP'}, 
     {id:"4",columnId:"111",content:"Downloads", dstPort: 40, protocol: 'TCP'}, 

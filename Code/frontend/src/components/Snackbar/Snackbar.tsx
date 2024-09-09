@@ -5,10 +5,12 @@ import { FC, SyntheticEvent, useState } from 'react';
 interface IProps {
     isOpen: boolean;
     onClose: (event?: SyntheticEvent | Event, reason?: SnackbarCloseReason) => void;
+    text: string;
 }
 export const CustomizedSnackbars: FC<IProps> = ({
     isOpen,
     onClose,
+    text,
 }) => {
   return (
       <Snackbar open={isOpen} autoHideDuration={6000} onClose={onClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
@@ -18,7 +20,7 @@ export const CustomizedSnackbars: FC<IProps> = ({
           variant="filled"
           sx={{ width: '100%', fontSize: '24px' }}
         >
-          Updated Preferences Successfully!
+          {text}
         </Alert>
       </Snackbar>
   );

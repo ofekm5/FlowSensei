@@ -1,4 +1,4 @@
-export interface CommunicationType {
+export interface Service {
     id: string;
     columnId: string;
     content: string;

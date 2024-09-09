@@ -4,7 +4,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { CommunicationType } from '../../models/CommunicationType.model';
+import { Service } from '../../models/Serivce.model';
 import { Box, Paper, styled } from '@mui/material';
 import { TextField } from '../TextField/TextField';
 
@@ -12,14 +12,13 @@ const ServiceFormPaper = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(4),
     maxWidth: 500,
     textAlign: 'center',
-    //backgroundColor: 'gainsboro',
   }));
 
 interface IProps {
     isOpen: boolean;
-    serivceToEdit: CommunicationType;
+    serivceToEdit: Service;
     onClose: () => void;
-    onEdit: (updatedService: CommunicationType) => void;
+    onEdit: (updatedService: Service) => void;
 }
 
 export const EditServiceDialog: FC<IProps> = ({
@@ -35,7 +34,7 @@ export const EditServiceDialog: FC<IProps> = ({
     const [destAddr, setDestAddr] = useState(serivceToEdit.dstAddr);
     const [srcPort, setSrcPort] = useState(serivceToEdit.srcPort);
 
-    const updatedService: CommunicationType = {
+    const updatedService: Service = {
         id: serivceToEdit.id, 
         columnId: serivceToEdit.columnId, 
         content: name, 

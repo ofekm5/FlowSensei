@@ -23,10 +23,11 @@ const Login: FC = () => {
   const { login } = useAuth();
 
   const handleLogin = async () => {
-    const isAuthenticated = await login(username, password);
+    const isAuthenticated = await login(username, password, publicIp);
 
     if (isAuthenticated) {
-      navigate('/priorities');
+      //navigate('/priorities');
+      navigate('/dashboard');
     } else {
       alert('Invalid credentials');
     }
