@@ -11,7 +11,7 @@ interface markServiceParams {
 }
 
 interface AddNodeToQueueTreeParams {
-    name: string;
+    serviceName: string;
     parent: string;
     packetMark: string;
     priority: string;
@@ -117,13 +117,13 @@ class APIClient {
             throw new Error('API session not initialized');
         }
         const {
-            name,
+            serviceName,
             packetMark,
             priority,
         } = params;
     
         const command = [
-            `=name=${name}`,
+            `=name=${serviceName}`,
             `=parent=global`,
             `=packet-mark=${packetMark}`,
             `=priority=${priority}`,

@@ -95,9 +95,9 @@ class APIClient {
         if (!i_RouterID || !this.apiSessions.get(i_RouterID)) {
             throw new Error('API session not initialized');
         }
-        const { name, packetMark, priority, } = params;
+        const { serviceName, packetMark, priority, } = params;
         const command = [
-            `=name=${name}`,
+            `=name=${serviceName}`,
             `=parent=global`,
             `=packet-mark=${packetMark}`,
             `=priority=${priority}`,

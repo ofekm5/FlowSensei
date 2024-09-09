@@ -3,7 +3,7 @@ import express from 'express';
 import dbClient from "./components/DBClient";
 import logger from "./logger";
 import { RabbitMQClient } from "./components/RabbitMQClient";
-import createRouter from './Router';
+import createAPIRouter from './route/createAPIRouter';
 import cors from 'cors';
 
 dotenv.config();
@@ -18,19 +18,20 @@ const app = express();
 const rabbitMQClient = new RabbitMQClient(rabbitURL, exchange);
 
 const corsOptions = {
-    origin: function (origin: string | undefined, callback: Function) {
-      if (origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) {
-        callback(null, true);  // Allow the request
-      } else {
-        callback(new Error('Not allowed by CORS'));  // Block the request
-      }
-    },
-  };
+  origin: function (origin: string | undefined, callback: Function) {
+    if (origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) {
+      callback(null, true);  
+    } 
+    else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+};
   
 app.use(cors(corsOptions));
 
 app.use(express.json());
-app.use('/api', createRouter(rabbitMQClient, secret));  
+app.use('/api', createAPIRouter(rabbitMQClient, secret));  
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });

@@ -1,14 +1,14 @@
 version: '3.7'
 services:
   postgres:
-    image: postgres:14  # You can try postgres:14 if you want a newer version
+    image: postgres:14  
     container_name: postgres
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydatabase
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # Mount only the data directory
+      - postgres_data:/var/lib/postgresql/data  
     ports:
       - "5432:5432"
     healthcheck:

@@ -8,7 +8,8 @@ const express_1 = __importDefault(require("express"));
 const DBClient_1 = __importDefault(require("./components/DBClient"));
 const logger_1 = __importDefault(require("./logger"));
 const RabbitMQClient_1 = require("./components/RabbitMQClient");
-const Router_1 = __importDefault(require("./Router"));
+const createAPIRouter_1 = __importDefault(require("./route/createAPIRouter"));
+const cors_1 = __importDefault(require("cors"));
 dotenv_1.default.config();
 const PORT = process.env.PORT || 5000;
 const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
@@ -17,8 +18,19 @@ const DATABASE_URL = process.env.DB_URL || 'mongodb://localhost:27017/mydb';
 const secret = process.env.JWT_SECRET || 'fd5ac1609d0f2d6a5b7c91385c09669f36137c427abdc4613b51c714ee47e9b6f8c4fd1f65d7bb2a79a00af7274aee19874c77148397aaaac82473eaadc4fc14';
 const app = (0, express_1.default)();
 const rabbitMQClient = new RabbitMQClient_1.RabbitMQClient(rabbitURL, exchange);
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+};
+app.use((0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
-app.use('/api', (0, Router_1.default)(rabbitMQClient, secret));
+app.use('/api', (0, createAPIRouter_1.default)(rabbitMQClient, secret));
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });
 });

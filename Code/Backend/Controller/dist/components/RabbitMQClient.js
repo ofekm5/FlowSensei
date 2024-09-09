@@ -45,90 +45,68 @@ class RabbitMQClient {
             });
         });
     }
-    sendMessageToQueue(msg) {
+    sendMessageToQueue(msg, type) {
         return new Promise((resolve, reject) => {
             if (!this.channel) {
                 return reject(new Error('Channel is not initialized'));
             }
             const correlationId = (0, uuid_1.v4)();
             this.responsePromises.set(correlationId, { resolve, reject });
-            this.channel.sendToQueue(this.exchange, Buffer.from(msg), {
+            this.channel.publish(this.exchange, 'request_key', Buffer.from(msg), {
                 correlationId: correlationId,
                 replyTo: this.responseQueue
             });
+            logger_1.default.info(`Sent ${type} message: ${msg} with correlationId: ${correlationId}`);
         });
     }
-    async markService(commonServicesToPorts) {
-        const connectionMarkNames = new Set();
-        for (let service of commonServicesToPorts) {
-            const serviceName = service.service;
-            const protocol = service.protocol;
-            const dstPorts = service.dstPorts;
-            const dstPortsString = dstPorts.join(',');
-            connectionMarkNames.add(serviceName);
-            const connectionMarkParams = {
-                service: serviceName,
-                protocol: protocol,
-                dstPort: dstPortsString
-            };
-            const connectionMarkMsg = JSON.stringify(connectionMarkParams);
-            const response = await this.sendMessageToQueue(connectionMarkMsg);
-            logger_1.default.info('sent connection mark: ' + response);
-        }
-        for (let connectionMark of connectionMarkNames) {
-            const packetMarkParams = {
-                service: connectionMark,
-                protocol: 'prerouting',
-                dstPort: connectionMark + 'packet'
-            };
-            const packetMarkMsg = JSON.stringify(packetMarkParams);
-            const response = await this.sendMessageToQueue(packetMarkMsg);
-            logger_1.default.info('sent packet mark: ' + response);
-        }
-        return "marked connections and packets successfully";
-    }
-    async createNewPriorityQueue(priorities) {
-        const upperTreeMsgParams = {
-            name: 'root',
-            parent: 'global',
-            packetMark: '',
-            priority: ''
+    async markService(service, routerID) {
+        const msgToSend = {
+            type: 'markService',
+            routerID: routerID,
+            service: service.name,
+            protocol: service.protocol,
+            dstPorts: service.dstPort
         };
-        const firstQueueTreeMsg = JSON.stringify(upperTreeMsgParams);
-        const response = await this.sendMessageToQueue(firstQueueTreeMsg);
-        logger_1.default.info('sent upper tree: ' + response);
-        logger_1.default.info('priorities: ' + priorities);
-        for (let priority of priorities) {
-            const packetMark = priority + '-packet';
-            const addNodeToQueueTreeParams = {
-                name: 'root',
-                parent: 'global',
-                packetMark: packetMark,
-                priority: (priorities.indexOf(priority) + 1).toString()
-            };
-            const msgToPublish = JSON.stringify(addNodeToQueueTreeParams);
-            const response = await this.sendMessageToQueue(msgToPublish);
-            logger_1.default.info('response sent : ' + response);
+        if (service.srcPort) {
+            msgToSend.srcPort = service.srcPort;
         }
-        return "created new priority queue successfully";
+        if (service.srcAddress) {
+            msgToSend.srcAddress = service.srcAddress;
+        }
+        if (service.dstAddress) {
+            msgToSend.dstAddress = service.dstAddress;
+        }
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'updateNodePriority');
+        return response;
     }
-    async updateNodesPriority(serviceName, newPriority) {
-        const updateNodePriority = {
-            type: 'update-node-priority',
-            name: serviceName,
+    async addNodeToQueueTree(node, routerID) {
+        const msgToSend = {
+            type: 'updateNodePriority',
+            routerID: routerID,
+            parent: node.parent,
+            serviceName: node.serviceName,
+            priority: node.priority,
+        };
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'updateNodePriority');
+        return response;
+    }
+    async updateNodePriority(routerId, serviceName, newPriority) {
+        const msgToSend = {
+            type: 'updateNodePriority',
+            routerID: routerId,
+            serviceName: serviceName,
             newPriority: newPriority
         };
-        const msgToPublish = JSON.stringify(updateNodePriority);
-        const response = await this.sendMessageToQueue(msgToPublish);
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'updateNodePriority');
         return response;
     }
     async deleteNode(routerID, serviceName) {
-        const deleteNode = {
+        const msgToSend = {
             type: 'deleteNodeFromGlobalQueue',
             routerID: routerID,
             name: serviceName
         };
-        const response = await this.sendMessageToQueue(deleteNode);
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'deleteNodeFromGlobalQueue');
         return response;
     }
     async login(username, password, publicIp, routerID) {
@@ -139,15 +117,15 @@ class RabbitMQClient {
             publicIp: publicIp,
             routerID: routerID
         };
-        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend));
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'login');
         return response;
     }
-    async logout(routerID) {
+    async disconnect(routerID) {
         const msgToSend = {
-            type: 'logout',
+            type: 'disconnect',
             routerID: routerID
         };
-        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend));
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'disconnect');
         return response;
     }
 }

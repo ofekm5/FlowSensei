@@ -71,10 +71,10 @@ class MessageProcessor {
 
         try {
             const parsedMessage = JSON.parse(message);
-            const { Type } = parsedMessage;
+            const { type } = parsedMessage;
 
-            if (Type) {
-                switch (Type) {
+            if (type) {
+                switch (type) {
                     case "login":
                         await this.handleLogin(parsedMessage);
                         responseMessage.Status = 'ok';
@@ -96,7 +96,7 @@ class MessageProcessor {
                         responseMessage.Status = 'ok';
                         break;
                     case "deleteNodeFromGlobalQueue":
-                        await apiClient.deleteNodeFromGlobalQueue(parsedMessage.RouterID, parsedMessage.name)
+                        await apiClient.deleteNodeFromGlobalQueue(parsedMessage.routerID, parsedMessage.serviceName)
                             .catch((error: any) => {
                                 throw new Error(`Failed to delete node from global queue: ${error}`);
                             });
@@ -121,9 +121,9 @@ class MessageProcessor {
     }
 
     private async handleLogin(parsedMessage: any): Promise<void> {
-        const { Host, Username, Password, RouterID } = parsedMessage;
-        if (Host && Username && Password && RouterID) {
-            await apiClient.login(Host, Username, Password, RouterID)
+        const { Host, Username, Password, routerID } = parsedMessage;
+        if (Host && Username && Password && routerID) {
+            await apiClient.login(Host, Username, Password, routerID)
                 .catch((error: any) => {
                     throw new Error(`Failed to login: ${error}`);
                 });
@@ -143,7 +143,7 @@ class MessageProcessor {
             dstAddress
         } = parsedMessage;
         if (service && protocol && dstPort) {
-            await apiClient.markService(parsedMessage.RouterID, {
+            await apiClient.markService(parsedMessage.routerID, {
                 service,
                 protocol,
                 dstPort,
@@ -162,14 +162,14 @@ class MessageProcessor {
 
     private async handleAddNodeToQueueTree(parsedMessage: any): Promise<void> {
         const {
-            name,
             parent,
-            packetMark,
+            serviceName,
             priority,
         } = parsedMessage;
-        if (name && parent && packetMark && priority) {
-            await apiClient.addNodeToQueueTree(parsedMessage.RouterID, {
-                name,
+        const packetMark = serviceName + '_packet';
+        if (parent && serviceName && priority) {
+            await apiClient.addNodeToQueueTree(parsedMessage.routerID, {
+                serviceName,
                 parent,
                 packetMark,
                 priority,
@@ -184,9 +184,9 @@ class MessageProcessor {
     }
 
     private async handleUpdateNodePriority(parsedMessage: any): Promise<void> {
-        const { name, newPriority, RouterID } = parsedMessage;
-        if (name && newPriority && RouterID) {
-            await apiClient.updateNodePriority(RouterID, name, newPriority)
+        const { name, newPriority, routerID } = parsedMessage;
+        if (name && newPriority && routerID) {
+            await apiClient.updateNodePriority(routerID, name, newPriority)
                 .catch((error: any) => {
                     throw new Error(`Failed to update node priority: ${error}`);
                 });
@@ -197,9 +197,9 @@ class MessageProcessor {
     }
 
     private async handleDisconnect(parsedMessage: any): Promise<void> {
-        const { RouterID } = parsedMessage;
-        if (RouterID) {
-            await apiClient.disconnect(RouterID)
+        const { routerID } = parsedMessage;
+        if (routerID) {
+            await apiClient.disconnect(routerID)
                 .catch((error: any) => {
                     throw new Error(`Failed to disconnect: ${error}`);
                 });

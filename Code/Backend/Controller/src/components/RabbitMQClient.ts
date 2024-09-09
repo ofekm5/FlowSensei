@@ -1,22 +1,7 @@
 import logger from "../logger";
 import amqp, { Channel, Connection, Message } from 'amqplib/callback_api';
 import { v4 as uuidv4 } from 'uuid';
-
-interface IService {
-    service: string;
-    protocol: string;
-    dstPort: string;
-    srcPort?: string;
-    srcAddress?: string;
-    dstAddress?: string;
-}
-
-interface INode {
-    name: string;
-    parent: string;
-    packetMark: string;
-    priority: string;
-}
+import { Service, Node} from '../types';
 
 export class RabbitMQClient {
     private responsePromises = new Map<string, { resolve: (value: any) => void, reject: (reason?: any) => void }>();
@@ -25,7 +10,6 @@ export class RabbitMQClient {
     private rabbitURL:string;
     private exchange:string;
     
-
     public constructor(i_RabbitURL:string, i_Exchange:string) {
         this.rabbitURL = i_RabbitURL;
         this.exchange = i_Exchange;
@@ -75,7 +59,7 @@ export class RabbitMQClient {
 
             const correlationId = uuidv4();
             this.responsePromises.set(correlationId, { resolve, reject });
-            this.channel.sendToQueue(this.exchange, Buffer.from(msg), {
+            this.channel.publish(this.exchange, 'request_key', Buffer.from(msg), {
                 correlationId: correlationId, 
                 replyTo: this.responseQueue
             });
@@ -83,9 +67,10 @@ export class RabbitMQClient {
         });
     }
 
-    public async markService(service: IService) {
+    public async markService(service: Service, routerID: string) {
         const msgToSend: {
             type: string;
+            routerID: string;
             service: string;
             protocol: string;
             dstPorts: string;
@@ -94,7 +79,8 @@ export class RabbitMQClient {
             dstAddress?: string;   
         } = {
             type: 'markService',
-            service: service.service,
+            routerID: routerID,
+            service: service.name,
             protocol: service.protocol,
             dstPorts: service.dstPort
         };
@@ -113,13 +99,12 @@ export class RabbitMQClient {
         return response;
     }
     
-
-    public async addNodeToQueueTree(node: INode) {
+    public async addNodeToQueueTree(node: Node, routerID: string) {
         const msgToSend = {
             type: 'updateNodePriority',
-            name: node.name,
+            routerID: routerID,
             parent: node.parent,
-            packetMark: node.packetMark,
+            serviceName: node.serviceName,
             priority: node.priority,
         };
         
@@ -127,10 +112,11 @@ export class RabbitMQClient {
         return response;
     }
 
-    public async updateNodePriority(serviceName: string, newPriority: string) {
+    public async updateNodePriority(routerId:string, serviceName: string, newPriority: string) {
         const msgToSend = {
             type: 'updateNodePriority',
-            name: serviceName,
+            routerID: routerId,
+            serviceName: serviceName,
             newPriority: newPriority
         };
 

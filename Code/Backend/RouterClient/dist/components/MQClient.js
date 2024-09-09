@@ -60,9 +60,9 @@ class MessageProcessor {
         let responseMessage = { Status: 'failed' };
         try {
             const parsedMessage = JSON.parse(message);
-            const { Type } = parsedMessage;
-            if (Type) {
-                switch (Type) {
+            const { type } = parsedMessage;
+            if (type) {
+                switch (type) {
                     case "login":
                         await this.handleLogin(parsedMessage);
                         responseMessage.Status = 'ok';
@@ -83,6 +83,13 @@ class MessageProcessor {
                         await this.handleDisconnect(parsedMessage);
                         responseMessage.Status = 'ok';
                         break;
+                    case "deleteNodeFromGlobalQueue":
+                        await APIClient_1.default.deleteNodeFromGlobalQueue(parsedMessage.routerID, parsedMessage.serviceName)
+                            .catch((error) => {
+                            throw new Error(`Failed to delete node from global queue: ${error}`);
+                        });
+                        responseMessage.Status = 'ok';
+                        break;
                     default:
                         logger_1.default.error('Invalid message type');
                         break;
@@ -100,9 +107,9 @@ class MessageProcessor {
         return JSON.stringify(responseMessage);
     }
     async handleLogin(parsedMessage) {
-        const { Host, Username, Password, RouterID } = parsedMessage;
-        if (Host && Username && Password && RouterID) {
-            await APIClient_1.default.login(Host, Username, Password, RouterID)
+        const { Host, Username, Password, routerID } = parsedMessage;
+        if (Host && Username && Password && routerID) {
+            await APIClient_1.default.login(Host, Username, Password, routerID)
                 .catch((error) => {
                 throw new Error(`Failed to login: ${error}`);
             });
@@ -114,7 +121,7 @@ class MessageProcessor {
     async handleMarkService(parsedMessage) {
         const { service, protocol, dstPort, srcPort, srcAddress, dstAddress } = parsedMessage;
         if (service && protocol && dstPort) {
-            await APIClient_1.default.markService(parsedMessage.RouterID, {
+            await APIClient_1.default.markService(parsedMessage.routerID, {
                 service,
                 protocol,
                 dstPort,
@@ -132,10 +139,11 @@ class MessageProcessor {
         }
     }
     async handleAddNodeToQueueTree(parsedMessage) {
-        const { name, parent, packetMark, priority, } = parsedMessage;
-        if (name && parent && packetMark && priority) {
-            await APIClient_1.default.addNodeToQueueTree(parsedMessage.RouterID, {
-                name,
+        const { parent, serviceName, priority, } = parsedMessage;
+        const packetMark = serviceName + '_packet';
+        if (parent && serviceName && priority) {
+            await APIClient_1.default.addNodeToQueueTree(parsedMessage.routerID, {
+                serviceName,
                 parent,
                 packetMark,
                 priority,
@@ -149,9 +157,9 @@ class MessageProcessor {
         }
     }
     async handleUpdateNodePriority(parsedMessage) {
-        const { name, newPriority, RouterID } = parsedMessage;
-        if (name && newPriority && RouterID) {
-            await APIClient_1.default.updateNodePriority(RouterID, name, newPriority)
+        const { name, newPriority, routerID } = parsedMessage;
+        if (name && newPriority && routerID) {
+            await APIClient_1.default.updateNodePriority(routerID, name, newPriority)
                 .catch((error) => {
                 throw new Error(`Failed to update node priority: ${error}`);
             });
@@ -161,9 +169,9 @@ class MessageProcessor {
         }
     }
     async handleDisconnect(parsedMessage) {
-        const { RouterID } = parsedMessage;
-        if (RouterID) {
-            await APIClient_1.default.disconnect(RouterID)
+        const { routerID } = parsedMessage;
+        if (routerID) {
+            await APIClient_1.default.disconnect(routerID)
                 .catch((error) => {
                 throw new Error(`Failed to disconnect: ${error}`);
             });
