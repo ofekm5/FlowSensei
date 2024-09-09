@@ -13,6 +13,7 @@ dotenv_1.default.config();
 const PORT = process.env.PORT || 3000;
 const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
 const rabbitMqUrl = process.env.RABBIT_URL || 'amqp://myuser:mypass@localhost:5672';
+const hourLimitInterval = process.env.HOUR_LIMIT_INTERVAL || 2;
 const app = (0, express_1.default)();
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'up', timestamp: new Date().toISOString() });
@@ -21,7 +22,7 @@ app.listen(PORT, () => {
     const messageProcessor = new MQClient_1.default();
     messageProcessor.ConnectToRabbit(rabbitMqUrl, exchange);
     logger_1.default.info(`Server is running on port ${PORT}`);
-    node_cron_1.default.schedule('0 */3 * * *', async () => {
+    node_cron_1.default.schedule(`0 */${hourLimitInterval} * * *`, async () => {
         try {
             await APIClient_1.default.adjustLimit();
             logger_1.default.info('Successfully ran adjustLimit cron job');

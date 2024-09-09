@@ -9,6 +9,7 @@ dotenv.config();
 const PORT = process.env.PORT || 3000;
 const exchange = process.env.EXCHANGE_NAME || 'requests_exchange';
 const rabbitMqUrl = process.env.RABBIT_URL || 'amqp://myuser:mypass@localhost:5672';
+const hourLimitInterval = process.env.HOUR_LIMIT_INTERVAL || 2;
 
 const app = express();
 
@@ -22,7 +23,7 @@ app.listen(PORT, () => {
     
     logger.info(`Server is running on port ${PORT}`);
 
-    cron.schedule('0 */3 * * *', async () => {
+    cron.schedule(`0 */${hourLimitInterval} * * *`, async () => {
         try {
             await apiClient.adjustLimit();
             logger.info('Successfully ran adjustLimit cron job');

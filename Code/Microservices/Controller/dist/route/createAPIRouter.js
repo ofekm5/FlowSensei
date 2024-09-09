@@ -9,6 +9,7 @@ const loginHandler_1 = require("./loginHandler");
 const logoutHandler_1 = require("./logoutHandler");
 const serviceListHandler_1 = require("./serviceListHandler");
 const serviceHandler_1 = require("./serviceHandler");
+const fetchKibana_1 = require("./fetchKibana");
 const createAPIRouter = (rabbitMQClient, secret) => {
     const router = express_1.default.Router();
     async function authenticateToken(req, res, next) {
@@ -29,6 +30,7 @@ const createAPIRouter = (rabbitMQClient, secret) => {
             next();
         });
     }
+    router.get('/initialize-router/:routerIp', (req, res) => (0, fetchKibana_1.fetchKibana)(req, res, rabbitMQClient));
     router.post('/login', (req, res) => (0, loginHandler_1.loginHandler)(req, res, rabbitMQClient, secret));
     router.post('/logout', authenticateToken, (req, res) => (0, logoutHandler_1.logoutHandler)(req, res, rabbitMQClient));
     router.get('/service-list', authenticateToken, serviceListHandler_1.serviceListHandler);

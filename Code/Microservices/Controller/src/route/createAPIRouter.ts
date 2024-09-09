@@ -5,6 +5,7 @@ import { loginHandler } from "./loginHandler";
 import { logoutHandler } from "./logoutHandler";
 import { serviceListHandler } from "./serviceListHandler";
 import { createServiceHandler, updateServiceHandler, deleteServiceHandler } from "./serviceHandler";
+import { fetchKibana } from "./fetchKibana";
 
 const createAPIRouter = (rabbitMQClient: RabbitMQClient, secret: string) => {
     const router = express.Router();
@@ -32,6 +33,7 @@ const createAPIRouter = (rabbitMQClient: RabbitMQClient, secret: string) => {
         });
     }
 
+    router.get('/initialize-router/:routerIp', (req, res) => fetchKibana(req, res, rabbitMQClient));
     router.post('/login', (req, res) => loginHandler(req, res, rabbitMQClient, secret));
     router.post('/logout', authenticateToken, (req, res) => logoutHandler(req, res, rabbitMQClient));
     router.get('/service-list', authenticateToken, serviceListHandler);

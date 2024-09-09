@@ -67,6 +67,16 @@ export class RabbitMQClient {
         });
     }
 
+    public async fetchKibana(routerIP: string) {
+        const msgToSend = {
+            type: 'elkSetup',
+            routerIP: routerIP
+        };
+
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'elkSetup');
+        return response;
+    }
+
     public async markService(service: Service, routerID: string) {
         const msgToSend: {
             type: string;

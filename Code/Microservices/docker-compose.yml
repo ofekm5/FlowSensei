@@ -1,46 +1,46 @@
 version: '3.7'
 services:
-  # elasticsearch:
-  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
-  #   container_name: elasticsearch
-  #   environment:
-  #     - discovery.type=single-node
-  #     - ES_JAVA_OPTS=-Xms512m -Xmx512m
-  #     - xpack.security.enabled=false  # Optional for disabling security
-  #   ports:
-  #     - "9200:9200"
-  #   volumes:
-  #     - esdata:/usr/share/elasticsearch/data
-  #   networks:
-  #     - elk
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false  # Optional for disabling security
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - elk_network
 
-  # logstash:
-  #   image: docker.elastic.co/logstash/logstash:7.10.1
-  #   container_name: logstash
-  #   ports:
-  #     - "5044:5044"
-  #     - "9600:9600"
-  #     - "2055:2055/udp"
-  #   volumes:
-  #     - ./logstash/pipeline:/usr/share/logstash/pipeline
-  #   depends_on:
-  #     - elasticsearch
-  #   networks:
-  #     - elk
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.10.1
+    container_name: logstash
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+      - "2055:2055/udp"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk_network
 
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:7.10.1
-  #   container_name: kibana
-  #   environment:
-  #     - server.cors.enabled=true
-  #     - server.cors.allowOrigin="*"
-  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
-  #   ports:
-  #     - "5601:5601"
-  #   depends_on:
-  #     - elasticsearch
-  #   networks:
-  #     - elk
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.10.1
+    container_name: kibana
+    environment:
+      - server.cors.enabled=true
+      - server.cors.allowOrigin="*"
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk_network
 
   postgres:
     image: postgres:14  
@@ -58,6 +58,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app_network
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -75,6 +77,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app_network
 
   controller:
     build:
@@ -93,6 +97,8 @@ services:
         condition: service_healthy
     ports:
       - "5000:5000"
+    networks:
+      - app_network
 
   routerclient:
     build:
@@ -102,30 +108,48 @@ services:
       - RABBIT_URL=amqp://user:password@rabbitmq:5672
       - EXCHANGE_NAME=requests_exchange
       - PORT=3000
+      - HOUR_LIMIT_INTERVAL=3
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "3000:3000"
-  
-  # monitor:
-  #   build:
-  #     context: ./Monitor 
-  #   container_name: monitor
-  #   environment:
-  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
-  #     - KIBANA_URL=http://kibana:5601
-  #     - PORT=7000
-  #   depends_on:
-  #     elasticsearch:
-  #       condition: service_healthy
-  #     logstash:
-  #       condition: service_healthy
-  #     kibana:
-  #       condition: service_healthy
-  #   ports:
-  #     - "7000:7000"
-  #   networks:
-  #     - elk_network
+    networks:
+      - app_network
+
+  monitor:
+    build:
+      context: ./Monitor 
+    container_name: monitor
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - KIBANA_URL=http://kibana:5601
+      - PORT=7000
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672  
+      - EXCHANGE_NAME=elk_exchange  
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      logstash:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+    ports:
+      - "7000:7000"
+    networks:
+      - elk_network
+      - app_network
+
+  GUI:
+    build:
+      context: ./ReactApp  
+    container_name: GUI
+    environment:
+      - NODE_ENV=development  
+    ports:
+      - "3001:3000"  
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
@@ -136,5 +160,7 @@ volumes:
     driver: local
 
 networks:
-  elk:
+  app_network:
+    driver: bridge
+  elk_network:
     driver: bridge

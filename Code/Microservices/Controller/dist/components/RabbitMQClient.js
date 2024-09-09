@@ -59,6 +59,14 @@ class RabbitMQClient {
             logger_1.default.info(`Sent ${type} message: ${msg} with correlationId: ${correlationId}`);
         });
     }
+    async fetchKibana(routerIP) {
+        const msgToSend = {
+            type: 'elkSetup',
+            routerIP: routerIP
+        };
+        const response = await this.sendMessageToQueue(JSON.stringify(msgToSend), 'elkSetup');
+        return response;
+    }
     async markService(service, routerID) {
         const msgToSend = {
             type: 'markService',

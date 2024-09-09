@@ -36,60 +36,9 @@ The router optimizes network performance during high-demand periods by utilizing
 
 In FlowSensei, each microservice has a corresponding queue, and data is routed to these queues using exchanges in RabbitMQ:
 
-- **Exchange:** `requests_exchange` is the only exchange, responsible for handling RouterOS API calls.
+- **Exchange:** `requests_exchange` is the exchange to RouterClient, responsible for handling RouterOS API calls. `elk_exchange` is the exchange to Monitor, responsible for fetching kibana URL from ELK stack.
 - **Queue Handling:** Results are returned to the appropriate queues using the `msg.properties.replyTo` feature with a message ID.
-
-#### Message Formats (JSON-Formatted)
-
-- **Login Message:**
-  ```json
-  {
-    "type": "login",
-    "username": "<username>",
-    "password": "<password>",
-    "publicIp": "<public_ip>",
-    "routerID": "<router_id>"
-  }
-  ```
-
-- **Connection Mark:**
-  ```json
-  {
-    "type": "connection-mark",
-    "chain": "prerouting",
-    "connectionMark": "<service_name>",
-    "protocol": "<protocol>",
-    "dstPort": "<comma_separated_ports>",
-    "passthrough": "yes"
-  }
-  ```
-
-- **Packet Mark:**
-  ```json
-  {
-    "type": "packet-mark",
-    "chain": "prerouting",
-    "connectionMark": "<connection_mark>",
-    "packetMark": "<connection_mark>packet",
-    "passthrough": "no"
-  }
-  ```
-
-- **Update Node Priority:**
-  ```json
-  {
-    "type": "update-node-priority",
-    "name": "<service_name>",
-    "newPriority": "<new_priority>"
-  }
-  ```
-
-- **Logout:**
-  ```json
-  {
-    "type": "logout"
-  }
-  ```
+- Each message in the exchange has specific structure and is json formatted.
 
 ### Monitoring Traffic
 
