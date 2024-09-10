@@ -142,10 +142,8 @@ services:
 
   GUI:
     build:
-      context: ./ReactApp  
+      context: ./GUI  
     container_name: GUI
-    environment:
-      - NODE_ENV=development  
     ports:
       - "3001:3000"  
     networks:
